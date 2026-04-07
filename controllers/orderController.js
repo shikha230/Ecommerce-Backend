@@ -134,6 +134,11 @@ exports.createOrder = async (req, res) => {
     );
     //  Billing Address Logic
     const finalBillingAddress = useSameBilling ? shippingAddress : billingAddress;
+     if (!finalBillingAddress) {
+      logger.info("----BillingAddress----Billing address is required")
+      return res.status(400).json({ message: "Billing address is required" });
+    }
+
 
 
     //  Create Order
@@ -149,7 +154,7 @@ exports.createOrder = async (req, res) => {
       tax,
       total,
       coupon: cart.coupon ? cart.coupon._id : null,
-      status: "Pending",
+      orderStatus: "Pending",
     });
 
     await order.save();
@@ -159,19 +164,12 @@ exports.createOrder = async (req, res) => {
     await Cart.deleteOne({ user: userId });
     logger.info(`Cart cleared for userId: ${userId}`);
 
-    res.json({ message: "Order placed successfully", order });
+    res.json({ message: "Order created successfully", order });
   } catch (err) {
     logger.error(`Order creation error for userId: ${req.user.id}, error: ${err.message}`);
     res.status(500).json({ message: err.message });
   }
 };
-
-  
-   
-   
-  
-
-
 // Get Orders by User
 exports.getOrders = async (req, res) => {
   try {
@@ -192,11 +190,35 @@ exports.getOrders = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+// Get all orders (Admin Dashboard)
+exports.getAllOrders = async (req, res) => {
+  try {
+    // Optional: check if logged-in user is admin
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Access denied. Admins only." });
+    }
+
+    const orders = await Order.find()
+      .populate("userId", "firstname email") // user info bhi dikhane ke liye
+      .sort({ createdAt: -1 });
+
+    if (!orders.length) {
+      return res.status(404).json({ message: "No orders found" });
+    }
+
+    res.status(200).json({
+      message: "All orders fetched successfully",
+      orders
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 // Update Order Status (Admin)
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { Status } = req.body;
+    const { orderStatus } = req.body;
 
     logger.info(`Admin updating order status for orderId: ${orderId}`);
 
@@ -206,10 +228,10 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    order.Status = Status;
+    order.orderStatus = orderStatus;
     await order.save();
 
-    logger.info(`Order status updated: orderId=${orderId}, Status=${Status}`);
+    logger.info(`Order status updated: orderId=${orderId}, Status=${orderStatus}`);
 
     res.status(200).json({ message: "Order status updated successfully", order });
   } catch (err) {

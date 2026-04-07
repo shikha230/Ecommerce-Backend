@@ -5,7 +5,7 @@ const Category = require("../models/category");
 const logger = require("../helper/logger");
 
 
-// ✅ Create Product
+// Create Product
 // Create Product (Admin only)
 exports.createProduct = async (req, res) => {
   try {

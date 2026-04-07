@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const adminSchema = new mongoose.Schema(
   {
-    name: {
+   firstname: {
       type: String,
       required: [true, "Admin name is required"],
       trim: true,
@@ -25,9 +25,31 @@ const adminSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: ["admin", "superadmin"],
-      default: "admin"
+      default: "admin",
+      department:String,
+    },
+    profileImage:{
+      type:String,
+      default:""
+    },
+    
+    lastname:{
+      type:String,
+    },
+    phone: {
+                type: String,
+                required: true,
+                match: [/^[6-9]\d{9}$/, "Please enter valid 10 digit phone number"],
+          },        
+    
+    lastLogin:Date,
+    
+    NotificationsEnabled:{
+      type:Boolean,
+      default:true,
     },
     isActive: {
+      device:String,
       type: Boolean,
       default: true
     }

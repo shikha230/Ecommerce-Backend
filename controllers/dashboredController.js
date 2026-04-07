@@ -1,4 +1,5 @@
 const User = require("../models/User"); 
+const Order = require("../models/order");
 const logger = require("../helper/logger");
 
 
@@ -9,7 +10,7 @@ exports.getCustomerStats = async (req, res) => {
             status: "Active" 
         }); 
         
-        const startOfMonth = new Date(); 
+        const startOfMonth = new Date();      //new this month
         startOfMonth.setDate(1); 
         
         const newCustomers = await User.countDocuments({ 
@@ -35,3 +36,38 @@ exports.getCustomerStats = async (req, res) => {
             
         } 
     };
+  
+    exports.getCustomersList = async (req, res) => {
+        try {
+            const customers = await User.aggregate([
+                {
+                    $lookup: {
+                        from: "orders",
+                        localField: "_id",
+                        foreignField: "user",
+                        as: "orders"
+                    }
+                },
+                {
+                    $addFields: {
+                        totalOrders: { $size: "$orders" },
+                        totalSpent: { $sum: "$orders.amount" },
+                        lastOrder: { $max: "$orders.createdAt" }
+                    }
+                },
+                {
+                    $project: {
+                        name: 1,
+                        email: 1,
+                        totalOrder: 1,
+                        totalSpent: 1,
+                        
+                        lastOrder: 1
+                    }
+                }
+            ]);
+            res.json(customers);
+        } catch (error) {
+            res.status(500).json({ message: error.message });
+        }
+    }

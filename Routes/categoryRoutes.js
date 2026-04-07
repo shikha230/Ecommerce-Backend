@@ -9,7 +9,7 @@ router.put("/:id", tokenMiddleware, categoryController.updateCategory);
 router.delete("/:id", tokenMiddleware, categoryController.deleteCategory);
 
 // ✅ Public routes (User + Admin both)
-router.get("/", categoryController.getCategories);
+router.get("/all", categoryController.getCategories);
 router.get("/:id", categoryController.getCategoryById);
 
 

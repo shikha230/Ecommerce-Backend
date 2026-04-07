@@ -2,15 +2,16 @@ const Admin = require("../models/admin");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const logger = require("../helper/logger");
+const path = require("path"); 
 
 
 // ✅ Admin Signup
 exports.signup = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { firstname, email, password, role } = req.body;
 
     // Manual validations
-    if (!name || name.length < 3) {
+    if (!firstname || firstname.length < 3) {
       logger.info("-----Signup------ Name must be at least 3 characters ")
         
       return res.status(400).json({ error: "Name must be at least 3 characters" });
@@ -39,7 +40,7 @@ exports.signup = async (req, res) => {
 
     // Create new admin
     const admin = new Admin({
-      name,
+      firstname,
       email,
       password: hashedPassword,
       role: role || "admin"
@@ -124,7 +125,7 @@ exports.forgetPassword = async (req, res) => {
     admin.otpExpire = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
     await admin.save();
     logger.info("-----forgetPassword-----OTP sent to Email")
-    res.json({ message: `OTP sent to ${email}`, otp }); // अभी demo में response में दिखा रहे हैं
+    res.json({ message: `OTP sent to ${email}`, otp }); // now only shown in demo response
   } catch (error) {
     logger.error("-----forgetPassword-----Server error in forgetPassword");
     res.status(500).json({ message: "Server error in forgetPassword" });
@@ -193,24 +194,98 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: "Server error in resetPassword" });
   }
 };
-
-exports.Profile =async (req, res) => {
+exports.Profile = async (req, res) => {
   try {
-    // req.admin.id JWT से आया है
-    const admin = await Admin.findById(req.user.id).select("-password"); // password hide कर दिया
+    const admin = await Admin.findById(req.user.id)
+      .select("firstname lastname email role bio department profileImage"); // sirf required fields
+
     if (!admin) {
-      logger.info("-----Profile-----Admin not found")
-      
+      logger.info("-----Profile-----Admin not found");
       return res.status(404).json({ message: "Admin not found" });
     }
-    logger.info("-----Profile-----Welcome to your profile")
-    res.json({ message: "Welcome to your profile", admin });
-  } catch (error) {
-    logger.error("-----Profile-----error")
-    res.status(500).json({ message: "error" });
-  }
-}
 
+    logger.info("-----Profile-----Profile fetched successfully");
+    res.json({
+      message: "Welcome to your profile",
+      profile: {
+        firstname: admin.firstname,
+        lastname: admin.lastname,
+        email: admin.email,
+        role: admin.role,
+        bio: admin.bio,
+        department: admin.department,
+        profileImage: admin.profileImage
+      }
+    });
+  } catch (error) {
+    logger.error("-----Profile-----error");
+    res.status(500).json({ message: "Server error in profile" });
+  }
+};
+
+// Profile update Personal Information
+exports.updateProfile = async (req, res) => {
+  try {
+    const { firstName, lastName, phone, bio, department } = req.body;
+    const updated = await Admin.findByIdAndUpdate(
+      req.admin.id,
+      { firstName, lastName, phone,email,profileImage,role, bio, department, },
+      { new: true }
+    ).select("-password");
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+// Notifiacations
+exports.updateNotifications = async (req, res) => {
+  try {
+    const { notificationsEnabled } = req.body;
+    const admin = await Admin.findByIdAndUpdate(
+      req.admin.id,
+      { notificationsEnabled },
+      { new: true }
+    );
+    res.json(admin);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+// Active Seesions
+exports.getSessions = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    res.json(admin.sessions);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+exports.uploadProfileImage = async (req, res) => {
+  try {
+    const admin = await Admin.findByIdAndUpdate(
+      req.user.id,
+      { profileImage: req.file.filename }, // filename or path
+      { new: true }
+    ).select("-password");
+
+    res.json({ message: "Profile image uploaded successfully", admin });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// LOgout seesion
+exports.logoutSession = async (req, res) => {
+  try {
+    const { token } = req.body;
+    await Admin.findByIdAndUpdate(req.admin.id, {
+      $pull: { sessions: { token } }
+    });
+    res.json({ message: "Session removed" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 
    

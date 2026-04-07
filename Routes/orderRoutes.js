@@ -11,10 +11,11 @@ router.get("/summary/:couponId", tokenMiddleware,orderController.getOrderSummary
 
 
 router.post("/create", tokenMiddleware,orderController.createOrder);
-router.get("/my-orders", tokenMiddleware, orderController.getOrders);
+router.get("/my-orders",tokenMiddleware, orderController.getOrders);
 
 // Admin routes
 router.put("/:orderId/status", tokenMiddleware, orderController.updateOrderStatus);
+router.get("/all",tokenMiddleware, orderController.getAllOrders); // Admin route
 
 
 

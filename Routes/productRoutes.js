@@ -12,13 +12,13 @@ router.delete("/delete/:id", tokenMiddleware, productController.deleteProduct);
 
 
 // Admin and Users
-router.get('/products', tokenMiddleware,productController.getProduct);
-router.get('/by-name/:name', tokenMiddleware,productController.getProductByName);
+router.get('/products',productController.getProduct);
+router.get('/by-name/:name',productController.getProductByName);
 router.get('/by-id/:id',tokenMiddleware, productController.getProductById);
-router.get('/by-category/:categoryId', tokenMiddleware,productController.getProductByCategory);
-router.get('/products/:featured',tokenMiddleware, productController.getfeaturedProduct);
-router.get('/products/best-selling', tokenMiddleware,productController.getbestSellingProduct);
-router.get('/byfilter/price', tokenMiddleware,productController.getfilterByPrice);
+router.get('/by-category/:categoryId',productController.getProductByCategory);
+router.get('/products/:featured', productController.getfeaturedProduct);
+router.get('/products/best-selling',productController.getbestSellingProduct);
+router.get('/byfilter/price',productController.getfilterByPrice);
 
 
 

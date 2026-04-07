@@ -26,6 +26,12 @@ const productSchema = new mongoose.Schema({
     default:""        //agr image nahi hai toh filhal
 
   },
+  images: [
+  {
+    type: String,
+    default: ""
+  }
+],
   colour: {
     type: String,
     trim: true
