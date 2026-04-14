@@ -18,15 +18,15 @@ const wishlistSchema = new mongoose.Schema(
         size: {
           type: String,
           enum: ["small", "medium", "large"],
-          required: true
+          required: false
         },
-        dimensions: [{
-            length: { type: Number, required: true },
-            width: { type: Number, required: true },
-            height: { type: Number, required: true },
-            unit: { type: String, default: "mm" } // optional unit field
-            }
-        ],
+        // dimensions: [{
+        //     length: { type: Number, select: false },
+        //     width: { type: Number, select: false },
+        //     height: { type: Number, select: false },
+        //     unit: { type: String, default: "mm" } // optional unit field
+        //     }
+        // ],
       }
     ]
   },

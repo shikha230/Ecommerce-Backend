@@ -194,7 +194,7 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: "Server error in resetPassword" });
   }
 };
-exports.Profile = async (req, res) => {
+exports.adminProfile = async (req, res) => {
   try {
     const admin = await Admin.findById(req.user.id)
       .select("firstname lastname email role bio department profileImage"); // sirf required fields
@@ -226,40 +226,45 @@ exports.Profile = async (req, res) => {
 // Profile update Personal Information
 exports.updateProfile = async (req, res) => {
   try {
-    const { firstName, lastName, phone, bio, department } = req.body;
+    const { firstName, lastName, phone, bio,email,profileImage, department } = req.body;
     const updated = await Admin.findByIdAndUpdate(
-      req.admin.id,
-      { firstName, lastName, phone,email,profileImage,role, bio, department, },
+      req.user.id,
+      { firstName, lastName, phone,email,profileImage, bio, department, },
       { new: true }
     ).select("-password");
+    logger.info("------update------profile updated")
     res.json(updated);
   } catch (err) {
+    logger.error("----updatederror-----")
     res.status(500).json({ message: err.message });
   }
 };
 // Notifiacations
-exports.updateNotifications = async (req, res) => {
-  try {
-    const { notificationsEnabled } = req.body;
-    const admin = await Admin.findByIdAndUpdate(
-      req.admin.id,
-      { notificationsEnabled },
-      { new: true }
-    );
-    res.json(admin);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
+// exports.updateNotifications = async (req, res) => {
+//   try {
+//     const { notificationsEnabled } = req.body;
+//     const admin = await Admin.findByIdAndUpdate(
+//       req.admin.id,
+//       { notificationsEnabled },
+//       { new: true }
+//     );
+//     res.json(admin);
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
 // Active Seesions
 exports.getSessions = async (req, res) => {
   try {
     const admin = await Admin.findById(req.admin.id);
+    logger.info("-----admin session----")
     res.json(admin.sessions);
   } catch (err) {
+    logger.error("----sessionerror-----")
     res.status(500).json({ message: err.message });
   }
 };
+// upload photo
 exports.uploadProfileImage = async (req, res) => {
   try {
     const admin = await Admin.findByIdAndUpdate(
@@ -267,9 +272,25 @@ exports.uploadProfileImage = async (req, res) => {
       { profileImage: req.file.filename }, // filename or path
       { new: true }
     ).select("-password");
-
+    logger.info("--Profile----Profile image uploaded successfully")
     res.json({ message: "Profile image uploaded successfully", admin });
   } catch (err) {
+    logger.error("---error----profile error")
+    res.status(500).json({ error: err.message });
+  }
+};
+// remove photo
+exports.removeProfileImage = async (req, res) => {
+  try {
+    const admin = await Admin.findByIdAndUpdate(
+      req.user.id,   // 👈 JWT से आने वाला id
+      { profileImage: null }, // 👈 image field को null कर दिया
+      { new: true }
+    ).select("-password");
+    logger.info("---Profle----Image removed Successfully")
+    res.json({ message: "Profile image removed successfully", admin });
+  } catch (err) {
+    logger.error("---error-----remove")
     res.status(500).json({ error: err.message });
   }
 };
@@ -278,14 +299,22 @@ exports.uploadProfileImage = async (req, res) => {
 exports.logoutSession = async (req, res) => {
   try {
     const { token } = req.body;
-    await Admin.findByIdAndUpdate(req.admin.id, {
+
+    // 🔹 Check role from JWT decoded user
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Only admin can logout from this endpoint" });
+    }
+
+    await Admin.findByIdAndUpdate(req.user.id, {
       $pull: { sessions: { token } }
     });
-    res.json({ message: "Session removed" });
+
+    logger.info(`-----logoutSession----- Admin: ${req.user.email} logged out`);
+    res.json({ success: true, message: "Session removed" });
   } catch (err) {
+    logger.error("-----logoutSession----- Error", err);
     res.status(500).json({ message: err.message });
   }
 };
-
 
    

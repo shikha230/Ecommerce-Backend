@@ -132,12 +132,12 @@ exports.createOrder = async (req, res) => {
     logger.info(
       `Order calculation done: subtotal=${subtotal}, discount=${discount}, couponDiscount=${couponDiscount}, shipping=${shipping}, tax=${tax}, total=${total}`
     );
-    //  Billing Address Logic
-    const finalBillingAddress = useSameBilling ? shippingAddress : billingAddress;
-     if (!finalBillingAddress) {
-      logger.info("----BillingAddress----Billing address is required")
-      return res.status(400).json({ message: "Billing address is required" });
-    }
+    // //  Billing Address Logic
+    // const finalBillingAddress = useSameBilling ? shippingAddress : billingAddress;
+    //  if (!finalBillingAddress) {
+    //   logger.info("----BillingAddress----Billing address is required")
+    //   return res.status(400).json({ message: "Billing address is required" });
+    // }
 
 
 
@@ -146,7 +146,7 @@ exports.createOrder = async (req, res) => {
       userId,
       products: items,
       shippingAddress,
-      billingAddress: finalBillingAddress,
+      
       subtotal,
       discount,
       couponDiscount,
@@ -154,7 +154,7 @@ exports.createOrder = async (req, res) => {
       tax,
       total,
       coupon: cart.coupon ? cart.coupon._id : null,
-      orderStatus: "Pending",
+      
     });
 
     await order.save();
@@ -214,6 +214,7 @@ exports.getAllOrders = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 // Update Order Status (Admin)
 exports.updateOrderStatus = async (req, res) => {
   try {
@@ -228,14 +229,50 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
+    // Update order status
     order.orderStatus = orderStatus;
+
+    // Push new status into timeline
+    order.statusTimeline.push({
+      status: orderStatus,
+      date: new Date()
+    });
+
     await order.save();
 
     logger.info(`Order status updated: orderId=${orderId}, Status=${orderStatus}`);
 
-    res.status(200).json({ message: "Order status updated successfully", order });
+    res.status(200).json({ 
+      message: "Order status updated successfully", 
+      order 
+    });
   } catch (err) {
     logger.error(`Error updating order status: ${err.message}`);
     res.status(500).json({ message: err.message });
   }
 };
+// Track Order (User Side)
+exports.trackOrder = async (req, res) => {
+  try {
+    const userId = req.user.id;   // JWT से userId
+    const { orderId } = req.params;
+
+    logger.info(`User ${userId} tracking orderId: ${orderId}`);
+
+    const order = await Order.findOne({ _id: orderId, userId });
+    if (!order) {
+      logger.warn(`Order not found for userId=${userId}, orderId=${orderId}`);
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.status(200).json({
+      message: "Order tracking details fetched successfully",
+      currentStatus: order.orderStatus,
+      statusTimeline: order.statusTimeline,
+    });
+  } catch (err) {
+    logger.error(`Error tracking order: ${err.message}`);
+    res.status(500).json({ message: err.message });
+  }
+};
+   

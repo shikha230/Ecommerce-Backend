@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const Product = require("../models/product");
 const Category = require("../models/category");
-
+const Search = require("../models/search");
 const logger = require("../helper/logger");
 
 
@@ -297,5 +297,76 @@ exports.getfilterByPrice = async (req, res) => {
   } catch (error) {
     logger.error("----filterByPrice-----error");
     res.status(500).json({ error: "Server error", details: error.message });
+  }
+};
+// searchProducts
+exports.searchProducts = async (req, res) => {
+  try {
+    const keyword = req.query.q;
+    const regex = new RegExp(keyword, "i");
+
+    // पहले category collection में matching categories खोजें
+    const categories = await Category.find({ name: { $regex: regex } }).select("_id");
+
+    const products = await Product.find({
+      $or: [
+        { name: { $regex: regex } },
+        { category: { $in: categories.map(c => c._id) } }
+      ]
+    }).populate("category"); // category details भी लाना चाहें तो
+
+    await Search.create({
+      user: req.user.id,
+      keyword,
+      resultsCount: products.length
+    });
+
+    logger.info(`-----searchProducts-----User: ${req.user._id}, Keyword: ${keyword}, Results: ${products.length}`);
+    res.json(products);
+  } catch (error) {
+    logger.error("-----searchProducts-----Error", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Recent Searches
+exports.getrecentSearches = async (req, res) => {
+  try {
+    const searches = await Search.find({ user: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    logger.info(`-----getRecentSearches-----User: ${req.user._id}, Found: ${searches.length}`);
+    res.json(searches);
+  } catch (error) {
+    logger.error("-----getRecentSearches-----Server error in getRecentSearches", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+// upload Images
+exports.uploadProductImages = async (req, res) => {
+  try {
+    // ✅ Role check
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can upload product images" });
+    }
+
+    // multer se multiple files aayengi
+    const filenames = req.files.map(file => file.filename);
+
+    // productId body se aayega
+    const product = await Product.findByIdAndUpdate(
+      req.body.productId,
+      { $push: { images: { $each: filenames } } }, 
+      { new: true }
+    );
+
+    // ✅ Logger
+    console.log(`[UPLOAD] Admin ${req.user.id} uploaded images for product ${req.body.productId}:`, filenames);
+
+    res.json({ message: "Product images uploaded successfully", product });
+  } catch (err) {
+    console.error(`[ERROR] Upload failed: ${err.message}`);
+    res.status(500).json({ error: err.message });
   }
 };

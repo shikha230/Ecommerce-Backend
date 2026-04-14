@@ -22,6 +22,10 @@ const allowedOrigins = [
   "http://187.77.99.134",
   "http://localhost:3000",
   "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+   "http://localhost:5176",
+  "http://localhost:5177",
 ];
 
 const connect = require("./config/connect");
@@ -72,7 +76,8 @@ app.use("/api/order", orderRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/customers", customerRoutes);
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 
 //Test route for EJS page
 app.get("/", (req, res) => {

@@ -3,9 +3,10 @@ const path = require("path");
 
 // Profile image storage
 const profileStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/profileImage"); // folder path
-  },
+ destination: (req, file, cb) => {
+  cb(null, path.join(__dirname, "../uploads/profileImage"));
+},
+
   filename: (req, file, cb) => {
     // Custom filename: userId + timestamp + extension
     const ext = path.extname(file.originalname);
@@ -13,17 +14,20 @@ const profileStorage = multer.diskStorage({
   }
 });
 
-// // Product image storage
-// const productStorage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     cb(null, "uploads/productImages"); // folder path
-//   },
-//   filename: (req, file, cb) => {
-//     // Custom filename: productName + timestamp + extension
-//     const ext = path.extname(file.originalname);
-//     cb(null, req.body.name.replace(/\s+/g, "_") + "-product-" + Date.now() + ext);
-//   }
-// });
+// // productImges
+
+ const productStorage = multer.diskStorage({
+   destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "../uploads/productImages")); 
+     // "../" because uploads.js is inside middleware folder
+   },
+   filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+     cb(null, "product-" + Date.now() + ext); 
+     // simple unique filename, product ke liye
+   }
+ });
+
 
 //  File filter (optional)
  const fileFilter = (req, file, cb) => {
@@ -38,6 +42,6 @@ const profileStorage = multer.diskStorage({
 
  // Uploaders
 const uploadProfile = multer({ storage: profileStorage, fileFilter });
-// const uploadProduct = multer({ storage: productStorage, fileFilter });
+const uploadProduct = multer({ storage: productStorage, fileFilter });
 
-module.exports = { uploadProfile };
+module.exports = { uploadProfile,uploadProduct };

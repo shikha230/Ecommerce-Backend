@@ -12,5 +12,6 @@ logs/
 # Environment variables
 .env
 
-
+#uploads images
+uploads/
 

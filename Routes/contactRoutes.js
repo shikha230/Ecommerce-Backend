@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const contactController = require('../controllers/contactController');
+const tokenMiddleware = require("../middleware/tokenMiddleware");
 
-// user form submit Routes
-router.post('/create',contactController.createContact);
+// 🔹 Create Contact (User inquiry)
+router.post("/create-message", contactController.createContact);
 
-//admin dashbored
-router.get('/contacts',contactController.getAllContacts);
+// 🔹 Get Contacts (User → only own, Admin → all)
+router.get("/inquiry",tokenMiddleware, contactController.getContacts);
+
+// 🔹 Delete Contact (User → own only, Admin → any)
+router.delete("/inquiry/:id", tokenMiddleware, contactController.deleteContact);
 
 module.exports = router;

@@ -34,6 +34,16 @@ const userSchema = new mongoose.Schema(
       enum: ["Active", "Inactive"],
       default: "Active",
     },
+    lastname:{
+      type:String,
+    },
+    address: { 
+      type: String
+     },
+     phone: {
+                type: String,
+                match: [/^[6-9]\d{9}$/, "Please enter valid 10 digit phone number"],
+            },
     orders: {
       type: Number,
       default: 0,
@@ -43,7 +53,7 @@ const userSchema = new mongoose.Schema(
       default: 0,
     },
   },
-  { timestamp: true },
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("User", userSchema);

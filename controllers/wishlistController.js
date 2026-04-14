@@ -6,7 +6,7 @@ const logger = require("../helper/logger");
 exports.addtoWishlist = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { productId, size, dimensions } = req.body;
+    const { productId } = req.body;
 
     logger.info(`AddToWishlist: user=${userId}, product=${productId}`);
 
@@ -15,7 +15,6 @@ exports.addtoWishlist = async (req, res) => {
       logger.info("AddToWishlist: creating new wishlist for user");
       wishlist = new Wishlist({ user: userId, products: [] });
     }
-
     const exists = wishlist.products.find(
       (p) => p.product.toString() === productId
     );
@@ -23,9 +22,10 @@ exports.addtoWishlist = async (req, res) => {
       logger.warn("AddToWishlist: product already exists in wishlist");
       return res.status(400).json({ message: "Product already in wishlist" });
     }
-
-    wishlist.products.push({ product: productId, size, dimensions });
+    wishlist.products.push({ product: productId });
     await wishlist.save();
+ // 🔹 Populate product details before sending response
+    wishlist = await Wishlist.findOne({ user: userId }).populate("products.product");
 
     logger.info("AddToWishlist: product added successfully");
     res.status(200).json({ message: "Added to wishlist", wishlist });
@@ -34,14 +34,17 @@ exports.addtoWishlist = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
-// Get Wishlist
+ 
 exports.getWishlist = async (req, res) => {
   try {
     const userId = req.user.id;
     logger.info(`GetWishlist: user=${userId}`);
 
-    const wishlist = await Wishlist.findOne({ user: userId }).populate("products.product");
+    const wishlist = await Wishlist.findOne({ user: userId })
+      .populate({
+        path: "products.product",   // nested path
+        model: "Product"            // explicitly tell mongoose which model
+      });
 
     if (!wishlist || wishlist.products.length === 0) {
       logger.info("GetWishlist: wishlist is empty");
@@ -55,6 +58,8 @@ exports.getWishlist = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+
 
 // Remove from Wishlist
 exports.removeWishlist = async (req, res) => {

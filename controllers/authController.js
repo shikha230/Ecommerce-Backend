@@ -37,7 +37,17 @@ exports.signup = async (req, res) => {
     const user = new User({ fullname, email, password: hashedPassword });
     await user.save();
     logger.info("----signup----User registered successfully")
-    res.status(201).json({ message: "User registered successfully", user });
+    res.status(201).json({
+      message: "User registered successfully",
+      user: {
+        _id: user.id,
+        fullname: user.fullname,
+        email: user.email,
+        status: user.status
+        // orders और totalSpent यहाँ नहीं भेजे
+      }
+    });
+
   } catch (err) {
     logger.error("----signup----error")
     res.status(500).json({ error: err.message });
@@ -165,13 +175,13 @@ exports.resetPassword = async (req, res) => {
     logger.info("-----resetPasswordOtp-----Password reset successful")
     res.json({ message: "Password reset successful" });
   } catch (error) {
-    logger.error("----resetPassword----Server error in resetPassword")
+    logger.error("----resetPassword----error in resetPassword")
 
     res.status(500).json({ message: "Server error in resetPassword" });
   }
 };
 
-exports.Profile =async (req, res) => {
+exports.userProfile =async (req, res) => {
   try {
     // req.user.id JWT से आया है
     const user = await User.findById(req.user.id).select("-password"); // password hide कर दिया
@@ -181,9 +191,85 @@ exports.Profile =async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
     logger.info("-----Profile-----Welcome to your profile")
-    res.json({ message: "Welcome to your profile", user });
+    res.status(201).json({
+      message: "Welcome to your profile",
+      user: {
+        _id: user.id,
+        fullname: user.fullname,
+        email: user.email,
+        phone:user.phone,
+        address:user.address,
+        status: user.status
+        // orders और totalSpent यहाँ नहीं भेजे
+      }
+    });
+
   } catch (error) {
     logger.error("-----Profile-----error")
     res.status(500).json({ message: "error" });
   }
 }
+exports.updateProfile = async (req, res) => {
+  try {
+    logger.info("-----UpdateProfile-----Request Body:", req.body);
+
+    const { fullname, email, phone, address } = req.body;
+
+    logger.info("-----UpdateProfile-----User ID from JWT:", req.user.id);
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      logger.warn("-----UpdateProfile-----User not found in DB");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    logger.info("-----UpdateProfile-----Current User Data:", user);
+
+    // Update fields
+    user.fullname = fullname || user.fullname;
+    user.email = email || user.email;
+    user.phone = phone || user.phone;
+    user.address = address || user.address;
+
+    await user.save();
+
+    logger.info("-----UpdateProfile-----Updated User Data:", user);
+
+    res.status(200).json({
+      message: "Profile updated successfully",
+      user: {
+        _id: user.id,
+        fullname: user.fullname,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+      },
+    });
+  } catch (error) {
+    logger.error("-----UpdateProfile-----Error:", error);
+    res.status(500).json({ message: "Error updating profile" });
+  }
+};
+       
+// User Logout Session
+exports.logoutSession = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    // 🔹 User की पहचान JWT से होगी
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized, no user found" });
+    }
+
+    // 🔹 User की sessions array से token हटाएँ
+    await User.findByIdAndUpdate(req.user.id, {
+      $pull: { sessions: { token } }
+    });
+
+    logger.info(`-----logoutSession----- User: ${req.user.email} logged out`);
+    res.json({ success: true, message: "Session removed" });
+  } catch (err) {
+    logger.error("-----logoutSession----- Error", err);
+    res.status(500).json({ message: err.message });
+  }
+};
