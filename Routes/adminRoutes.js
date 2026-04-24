@@ -13,7 +13,7 @@ router.post("/verify-otp",tokenMiddleware, verifyOtp);
 router.post("/reset-password",tokenMiddleware,resetPassword);
 router.get("/profile", tokenMiddleware,adminProfile );
 router.put("/updateprofile", tokenMiddleware,updateProfile );
-// router.put("/notifications", tokenMiddleware,updateNotifications);
+// router.put("/notifications", tokenMiddleware,updateNotifications); comment
 router.put("/session", tokenMiddleware,getSessions );
 router.put("/logout", tokenMiddleware,logoutSession );
 

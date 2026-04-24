@@ -57,9 +57,9 @@ app.use(
   }),
 );
 
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 // EJS setup
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({limit: '20mb', extended: true }));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views")); // views folder
 
@@ -77,6 +77,18 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Error handling middleware (routes ke baad)
+app.use((err, req, res, next) => {
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ error: 'File too large. Max 20MB allowed.' });
+  }
+  // Agar koi aur error hai to usko bhi handle kiya
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
+});
+
+
 
 
 //Test route for EJS page

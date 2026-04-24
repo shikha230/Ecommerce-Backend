@@ -21,11 +21,11 @@ const productSchema = new mongoose.Schema({
     min: [0, "Discount cannot be negative"]
   },
   
-  image: {
-    type:String,
-    default:""        //agr image nahi hai toh filhal
+    //  image: {
+    //  type:String,
+    //  default:""        //agr image nahi hai toh filhal
 
-  },
+  // },
   images: [
   {
     type: String,

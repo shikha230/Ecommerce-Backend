@@ -11,6 +11,7 @@ exports.getOrderSummary = async (req, res) => {
       .populate("coupon");
 
     if (!cart || cart.products.length === 0) {
+      logger.warn(`Order summary requested by user ${userId}, but cart is empty`);
       return res.status(200).json({ message: "Cart is empty", summary: {} });
     }
 
@@ -19,7 +20,8 @@ exports.getOrderSummary = async (req, res) => {
     cart.products.forEach((item) => {
       subtotal += item.product.price * item.quantity;
     });
-
+    logger.info(`Subtotal calculated: ${subtotal}`);
+    
     // Product Discount
     let discount = 0;
     cart.products.forEach((item) => {
@@ -27,7 +29,8 @@ exports.getOrderSummary = async (req, res) => {
         discount += (item.product.price * item.quantity * item.product.discount) / 100;
       }
     });
-
+    logger.info(`Product discount calculated: ${discount}`);
+    
     // Coupon Discount
     let couponDiscount = 0;
     if (cart.coupon) {
@@ -39,16 +42,24 @@ exports.getOrderSummary = async (req, res) => {
       } else if (cart.coupon.discountType === "fixed") {
         couponDiscount = cart.coupon.discountValue;
       }
+      logger.info(`Coupon discount applied: ${couponDiscount}`);
     }
 
     // Shipping
     let shipping = subtotal < 50000 ? 500 : 0;
-
+    logger.info(`Shipping charges: ${shipping}`);
+    
     // Tax
     const tax = Math.round(subtotal * 0.1);
+    logger.info(`Tax calculated: ${tax}`);
+    
+    // Installation Charges
+    const installationCharges = cart.installationCharges || 0;
+    logger.info(`Installation charges: ${installationCharges}`);
 
     // Final Total
-    const total = subtotal - discount - couponDiscount + shipping + tax;
+    const total = subtotal - discount - couponDiscount + shipping + tax + installationCharges;
+    logger.info(`Final total: ${total}`);;
 
     res.status(200).json({
       message: "Order summary generated",
@@ -58,6 +69,7 @@ exports.getOrderSummary = async (req, res) => {
         couponDiscount,
         shipping,
         tax,
+        installationCharges, // 
         total,
         items: cart.products,
         coupon: cart.coupon || null,
@@ -126,11 +138,14 @@ exports.createOrder = async (req, res) => {
     // Tax
     const tax = Math.round(subtotal * 0.1);
 
-    // Final Total
-    const total = subtotal - discount - couponDiscount + shipping + tax;
+    // ✅ Installation Charges (from cart)
+    const installationCharges = cart.installationCharges || 0;
+    logger.info(`Installation charges applied: ${installationCharges}`);
 
+    // Final Total
+    const total = subtotal - discount - couponDiscount + shipping + tax + installationCharges;
     logger.info(
-      `Order calculation done: subtotal=${subtotal}, discount=${discount}, couponDiscount=${couponDiscount}, shipping=${shipping}, tax=${tax}, total=${total}`
+      `Order calculation done: subtotal=${subtotal}, discount=${discount}, couponDiscount=${couponDiscount}, shipping=${shipping}, tax=${tax},installationCharges=${installationCharges}, total=${total}`
     );
     // //  Billing Address Logic
     // const finalBillingAddress = useSameBilling ? shippingAddress : billingAddress;
@@ -152,6 +167,7 @@ exports.createOrder = async (req, res) => {
       couponDiscount,
       shipping,
       tax,
+      installationCharges, //
       total,
       coupon: cart.coupon ? cart.coupon._id : null,
       

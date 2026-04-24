@@ -14,12 +14,12 @@ exports.createProduct = async (req, res) => {
       return res.status(403).json({ message: "Access denied: Admin only" });
     }
 
-    const { name, price,discount,image,colour,size,quantity,description,specification, inStock, featured,sold,category, dimensions } = req.body;
+    const { name, price,discount,images,colour,size,quantity,description,specification, inStock, featured,sold,category, dimensions } = req.body;
      const product = new Product({
       name,
       price,
       discount,
-      image,
+      images,
       colour,
       size,
       quantity,

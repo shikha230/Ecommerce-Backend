@@ -35,7 +35,13 @@ const cartSchema = new mongoose.Schema(
         },
       },
     ],
-    coupon: {
+    
+  installationCharges: {
+    type: Number,
+    default: null
+  },
+
+  coupon: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Coupon",
       default: null,

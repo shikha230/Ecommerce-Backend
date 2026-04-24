@@ -42,6 +42,7 @@ const profileStorage = multer.diskStorage({
 
  // Uploaders
 const uploadProfile = multer({ storage: profileStorage, fileFilter });
-const uploadProduct = multer({ storage: productStorage, fileFilter });
+const uploadProduct = multer({ storage: productStorage, fileFilter,limits: { fileSize: 20 * 1024 * 1024 } // 20 MB
+ });
 
 module.exports = { uploadProfile,uploadProduct };

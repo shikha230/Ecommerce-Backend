@@ -43,10 +43,12 @@ const orderSchema = new mongoose.Schema(
          contact: {
              email: {
                 type: String,
+                required:true,
                 lowercase: true,
                 trim: true,
                  match: [/^\S+@\S+\.\S+$/, "Please use valid email"],
                  },
+                //  phone feild optional now
             phone: {
                 type: String,
                 match: [/^[6-9]\d{9}$/, "Please enter valid 10 digit phone number"],
@@ -102,13 +104,13 @@ const orderSchema = new mongoose.Schema(
 );
 
 // Custom validation: at least one of email or phone must be present
-orderSchema.pre("validate", async function () {
-  if (
-    !this.shippingAddress.contact.email &&
-    !this.shippingAddress.contact.phone
-  ) {
-    throw new Error("Either email or phone number must be provided.");
-  }
-});
+// orderSchema.pre("validate", async function () {
+//   if (
+//     !this.shippingAddress.contact.email &&
+//     !this.shippingAddress.contact.phone
+//   ) {
+//     throw new Error("Either email or phone number must be provided.");
+//   }
+// });
 
 module.exports = mongoose.model("Order", orderSchema);
