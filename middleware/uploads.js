@@ -15,7 +15,6 @@ const profileStorage = multer.diskStorage({
 });
 
 // // productImges
-
  const productStorage = multer.diskStorage({
    destination: (req, file, cb) => {
     cb(null, path.join(__dirname, "../uploads/productImages")); 
@@ -28,6 +27,16 @@ const profileStorage = multer.diskStorage({
    }
  });
 
+ // Userproflie
+ const userProfileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "../uploads/userProfileImages")); 
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, req.user.id + "-user-" + Date.now() + ext);
+  }
+});
 
 //  File filter (optional)
  const fileFilter = (req, file, cb) => {
@@ -45,4 +54,5 @@ const uploadProfile = multer({ storage: profileStorage, fileFilter });
 const uploadProduct = multer({ storage: productStorage, fileFilter,limits: { fileSize: 20 * 1024 * 1024 } // 20 MB
  });
 
-module.exports = { uploadProfile,uploadProduct };
+const uploadUserProfile = multer({ storage: userProfileStorage, fileFilter });
+module.exports = { uploadProfile,uploadProduct,uploadUserProfile };

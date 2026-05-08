@@ -3,6 +3,8 @@ const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const logger = require("../helper/logger");
+const path = require("path");
+const emailService = require("../helper/emailServices");
 
 // Register
 exports.signup = async (req, res) => {
@@ -21,7 +23,10 @@ exports.signup = async (req, res) => {
 
       return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
-
+    if (password.length > 16) {
+       logger.error("-----signup------ Password cannot exceed 16 characters");
+       return res.status(400).json({ error: "Password cannot exceed 16 characters" });
+    }
     // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -37,8 +42,22 @@ exports.signup = async (req, res) => {
     const user = new User({ fullname, email, password: hashedPassword });
     await user.save();
     logger.info("----signup----User registered successfully")
+
+    //  Mailer Integration: Welcome Email
+    try{
+      await emailService.sendMail(
+      email,
+      "Welcome to Our Store",
+      `<h2>Hello ${fullname},</h2>
+       <p>Thanks for registering on our ecommerce platform. 
+       We’re excited to have you onboard!</p>`
+    );
+  }catch(mailErr){
+    logger.warn("---singup---welcome email failed:"+mailErr.message);
+  }
     res.status(201).json({
       message: "User registered successfully",
+     // ya false agar mail fail ho
       user: {
         _id: user.id,
         fullname: user.fullname,
@@ -49,7 +68,7 @@ exports.signup = async (req, res) => {
     });
 
   } catch (err) {
-    logger.error("----signup----error")
+    logger.error("----signup----error:"+err.message);
     res.status(500).json({ error: err.message });
   }
 };
@@ -110,6 +129,16 @@ exports.forgetPassword = async (req, res) => {
     user.otp = otp;
     user.otpExpire = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
     await user.save();
+    
+    //  Mailer Integration: Send OTP to user's email
+    await emailService.sendMail(
+      email,
+      "Password Reset OTP",
+      `<p>Hello ${user.fullname},</p>
+       <p>Your OTP for password reset is <b>${otp}</b>. 
+       It will expire in 10 minutes.</p>`,
+       `Hello ${user.fullname}, Your OTP is ${otp}. It will expire in 10 minutes.`
+    );
     logger.info("-----forgetPassword-----OTP sent to Email")
     res.json({ message: `OTP sent to ${email}`, otp }); // अभी demo में response में दिखा रहे हैं
   } catch (error) {
@@ -141,6 +170,20 @@ exports.verifyOtp = async (req, res) => {
       logger.info("-----verifyOtp-----OTP expired")
       return res.status(400).json({ message: "OTP expired" });
     }
+
+    //  OTP verified successfully → clear OTP from DB
+    user.otp = null;
+    user.otpExpire = null;
+    await user.save();
+
+    //  Mailer Integration: Confirmation Email
+    await emailService.sendMail(
+      email,
+      "OTP Verified Successfully",
+      `<p>Hello ${user.fullname},</p>
+       <p>Your OTP has been verified successfully. 
+       You can now reset your password.</p>`
+    );
     logger.info("-----verifyOtp-----OTP verified successfully")
     res.json({ message: "OTP verified successfully" });
   } catch (error) {
@@ -162,6 +205,13 @@ exports.resetPassword = async (req, res) => {
       logger.info("-----resetPasswordOtp-----User not found") 
       return res.status(400).json({ message: "User not found" });
     }
+    //  Password validations
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
+    }
+    if (newPassword.length > 16) {
+      return res.status(400).json({ message: "Password cannot exceed 16 characters" });
+    }
 
     // hash new password
     const salt = await bcrypt.genSalt(10);
@@ -172,12 +222,21 @@ exports.resetPassword = async (req, res) => {
     user.otpExpire = null;
 
     await user.save();
+
+    //  Mailer Integration: Confirmation Email
+    await emailService.sendMail(
+      email,
+      "Password Reset Successful",
+      `<p>Hello ${user.fullname},</p>
+       <p>Your password has been reset successfully. 
+       If you did not request this change, please contact support immediately.</p>`
+    );
     logger.info("-----resetPasswordOtp-----Password reset successful")
     res.json({ message: "Password reset successful" });
   } catch (error) {
-    logger.error("----resetPassword----error in resetPassword")
+    logger.error("----resetPassword----error:",error.message);
 
-    res.status(500).json({ message: "Server error in resetPassword" });
+    res.status(500).json({ message: error.message  });
   }
 };
 
@@ -199,7 +258,8 @@ exports.userProfile =async (req, res) => {
         email: user.email,
         phone:user.phone,
         address:user.address,
-        status: user.status
+        status: user.status,
+        profileImage: user.profileImage
         // orders और totalSpent यहाँ नहीं भेजे
       }
     });
@@ -213,7 +273,7 @@ exports.updateProfile = async (req, res) => {
   try {
     logger.info("-----UpdateProfile-----Request Body:", req.body);
 
-    const { fullname, email, phone, address } = req.body;
+    const { fullname, email, phone, address,profileImage } = req.body;
 
     logger.info("-----UpdateProfile-----User ID from JWT:", req.user.id);
 
@@ -230,7 +290,12 @@ exports.updateProfile = async (req, res) => {
     user.email = email || user.email;
     user.phone = phone || user.phone;
     user.address = address || user.address;
-
+    //  Profile image update (multer OR body)
+    if (req.file) {
+      user.profileImage = req.file.filename;
+    } else {
+      user.profileImage = profileImage || user.profileImage;
+    }
     await user.save();
 
     logger.info("-----UpdateProfile-----Updated User Data:", user);
@@ -243,6 +308,7 @@ exports.updateProfile = async (req, res) => {
         email: user.email,
         phone: user.phone,
         address: user.address,
+        profileImage: user.profileImage
       },
     });
   } catch (error) {
@@ -250,7 +316,69 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ message: "Error updating profile" });
   }
 };
-       
+// Upload User Profile Image
+exports.uploadUserProfileImage = async (req, res) => {
+  try {
+    if (!req.user) {
+      logger.warn("Unauthorized access attempt to upload profile image");
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (!req.file) {
+      logger.warn(`No file uploaded by userId: ${req.user.id}`);
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { profileImage: req.file.filename },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      logger.warn(`User not found: ${req.user.id}`);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    logger.info(`Profile image uploaded successfully for userId: ${req.user.id}`);
+    res.status(200).json({
+      message: "Profile image uploaded successfully",
+      user
+    });
+  } catch (err) {
+    logger.error(`Error uploading profile image: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+};
+// remove image
+exports.removeUserProfileImage = async (req, res) => {
+  try {
+    if (!req.user) {
+      logger.warn("Unauthorized access attempt to remove profile image");
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { profileImage: null }, // ✅ remove image
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      logger.warn(`User not found: ${req.user.id}`);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    logger.info(`Profile image removed successfully for userId: ${req.user.id}`);
+    res.status(200).json({
+      message: "Profile image removed successfully",
+      user
+    });
+  } catch (err) {
+    logger.error(`Error removing profile image: ${err.message}`);
+    res.status(500).json({ error: err.message });
+  }
+};
 // User Logout Session
 exports.logoutSession = async (req, res) => {
   try {

@@ -80,7 +80,7 @@ const orderSchema = new mongoose.Schema(
       default: "Placed",
     },
     statusTimeline:[{
-      status:String,
+       status:String,
       date:{
         type:Date,
         default:Date.now,

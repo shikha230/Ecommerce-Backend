@@ -50,10 +50,23 @@ const productSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  specification: {
-    type: String,
-    trim: true
+  // specification: {
+  //   type: String,
+  //   trim: true
+  // },
+  specifications: {
+    material: { type: String, trim: true },
+    installation: { type: String, trim: true },
+    overflow: { type: Boolean, default: false },
+    finish: { type: String, trim: true },
+    weight: { type: Number, min: [0, "Weight cannot be negative"] },
+    tapHole: { type: Number, min: [0, "Tap hole cannot be negative"] }
   },
+  careInstruction:{
+    type:String,
+    trim:true
+  },
+  
   inStock: {
     type: Boolean,
     default: true
@@ -71,6 +84,11 @@ const productSchema = new mongoose.Schema({
       unit: { type: String, default: "mm" } // optional unit field
     }
   ],
+  // Tags field added here
+  tags: {
+    type: [String],   // Array of strings
+    default: []
+  },
 
   featured: { 
     type: Boolean, 

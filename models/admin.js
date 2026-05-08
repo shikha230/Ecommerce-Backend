@@ -22,6 +22,11 @@ const adminSchema = new mongoose.Schema(
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"]
     },
+    otp: {
+      type: String,
+    }, // OTP string
+    otpExpire: { type: Date },
+    
     role: {
       type: String,
       enum: ["admin", "superadmin"],
@@ -38,7 +43,7 @@ const adminSchema = new mongoose.Schema(
     },
     phone: {
                 type: String,
-                required: true,
+                required: false,
                 match: [/^[6-9]\d{9}$/, "Please enter valid 10 digit phone number"],
           },        
     

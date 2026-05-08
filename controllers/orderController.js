@@ -46,16 +46,34 @@ exports.getOrderSummary = async (req, res) => {
     }
 
     // Shipping
-    let shipping = subtotal < 50000 ? 500 : 0;
+    let shipping = subtotal < 10000 ? 500 : 0;
     logger.info(`Shipping charges: ${shipping}`);
     
     // Tax
     const tax = Math.round(subtotal * 0.1);
     logger.info(`Tax calculated: ${tax}`);
+
+    // Installation Required & Charges
+    const installationRequired = cart.installationRequired || false;
+   let installationCharges = 0;
+
+    if (installationRequired) {
+     const totalProducts = cart.products.reduce((sum, p) => sum + p.quantity, 0);
+     if (totalProducts >= 3) {
+      installationCharges = 0;
+    } else if (totalProducts === 1) {
+      installationCharges = 500;
+    } else {
+      installationCharges = 250;
+    }
+  }
+  logger.info(`Installation required: ${installationRequired},installationcharges: ${installationCharges}`);
+
+
     
-    // Installation Charges
-    const installationCharges = cart.installationCharges || 0;
-    logger.info(`Installation charges: ${installationCharges}`);
+    // // Installation Charges
+    // const installationCharges = cart.installationCharges || 0;
+    // logger.info(`Installation charges: ${installationCharges}`);
 
     // Final Total
     const total = subtotal - discount - couponDiscount + shipping + tax + installationCharges;
@@ -69,6 +87,7 @@ exports.getOrderSummary = async (req, res) => {
         couponDiscount,
         shipping,
         tax,
+        installationRequired,
         installationCharges, // 
         total,
         items: cart.products,
@@ -133,14 +152,29 @@ exports.createOrder = async (req, res) => {
     }
 
     // Shipping
-    let shipping = subtotal < 50000 ? 500 : 0;
+    let shipping = subtotal < 10000 ? 500 : 0;
 
     // Tax
     const tax = Math.round(subtotal * 0.1);
 
-    // ✅ Installation Charges (from cart)
-    const installationCharges = cart.installationCharges || 0;
-    logger.info(`Installation charges applied: ${installationCharges}`);
+    const installationRequired = cart.installationRequired || false;
+    let installationCharges = 0;
+
+    if (installationRequired) {
+     const totalProducts = cart.products.reduce((sum, p) => sum + p.quantity, 0);
+     if (totalProducts >= 3) {
+      installationCharges = 0;
+    } else if (totalProducts === 1) {
+      installationCharges = 500;
+    } else {
+      installationCharges = 250;
+    }
+  }
+  logger.info(`Installationrequired: ${installationRequired},installationcharges: ${installationCharges}`);
+
+    // // ✅ Installation Charges (from cart)
+    // const installationCharges = cart.installationCharges || 0;
+    // logger.info(`Installation charges applied: ${installationCharges}`);
 
     // Final Total
     const total = subtotal - discount - couponDiscount + shipping + tax + installationCharges;
@@ -167,6 +201,7 @@ exports.createOrder = async (req, res) => {
       couponDiscount,
       shipping,
       tax,
+      installationRequired,
       installationCharges, //
       total,
       coupon: cart.coupon ? cart.coupon._id : null,
@@ -213,8 +248,19 @@ exports.getAllOrders = async (req, res) => {
     if (req.user.role !== "admin") {
       return res.status(403).json({ message: "Access denied. Admins only." });
     }
+    const { date } = req.query;   // frontend से query param आएगा
+    let filter = {};
+    
+    if (date) {
+      const start = new Date(date);
+      start.setHours(0, 0, 0, 0); // start of day
 
-    const orders = await Order.find()
+      const end = new Date(date);
+      end.setHours(23, 59, 59, 999); // end of day
+
+      filter.createdAt = { $gte: start, $lte: end };
+    }
+    const orders = await Order.find(filter)
       .populate("userId", "firstname email") // user info bhi dikhane ke liye
       .sort({ createdAt: -1 });
 
@@ -227,6 +273,32 @@ exports.getAllOrders = async (req, res) => {
       orders
     });
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Delete Order (Admin Dashboard)
+exports.deleteOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // ✅ only admin do
+    if (req.user.role !== "admin") {
+      logger.info("----access denied. admin only")
+      return res.status(403).json({ message: "Access denied. Admins only." });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      logger.info("-----order----Not found")
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    await Order.findByIdAndDelete(orderId);
+    logger.info("---deleted----order deleted successfully")
+    res.status(200).json({ message: "Order deleted successfully" });
+  } catch (err) {
+    logger.error("----error-------")
     res.status(500).json({ message: err.message });
   }
 };
@@ -268,27 +340,51 @@ exports.updateOrderStatus = async (req, res) => {
   }
 };
 // Track Order (User Side)
-exports.trackOrder = async (req, res) => {
+// exports.trackOrder = async (req, res) => {
+//   try {
+//     const userId = req.user.id;   // JWT से userId
+//     const { orderId } = req.params;
+
+//     logger.info(`User ${userId} tracking orderId: ${orderId}`);
+
+//     const order = await Order.findById({ _id: orderId, userId });
+//     if (!order) {
+//       logger.warn(`Order not found for userId=${userId}, orderId=${orderId}`);
+//       return res.status(404).json({ message: "Order not found" });
+//     }
+
+//     res.status(200).json({
+//       message: "Order tracking details fetched successfully",
+//       currentStatus: order.orderStatus,
+//       statusTimeline: order.statusTimeline,
+//     });
+//   } catch (err) {
+//     logger.error(`Error tracking order: ${err.message}`);
+//     res.status(500).json({ message: err.message });
+//   }
+// };
+ exports.trackOrder = async (req, res) => {
   try {
     const userId = req.user.id;   // JWT से userId
     const { orderId } = req.params;
 
-    logger.info(`User ${userId} tracking orderId: ${orderId}`);
-
-    const order = await Order.findOne({ _id: orderId, userId });
+    const order = await Order.findById(orderId);
     if (!order) {
-      logger.warn(`Order not found for userId=${userId}, orderId=${orderId}`);
       return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Ownership check
+    if (order.userId.toString() !== userId) {
+      return res.status(403).json({ message: "Not authorized to view this order" });
     }
 
     res.status(200).json({
       message: "Order tracking details fetched successfully",
-      currentStatus: order.orderStatus,
+      currentStatus: order.orderStatus,   // ✅ अब latest status मिलेगा
       statusTimeline: order.statusTimeline,
     });
   } catch (err) {
-    logger.error(`Error tracking order: ${err.message}`);
     res.status(500).json({ message: err.message });
   }
 };
-   
+  

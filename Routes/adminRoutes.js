@@ -8,9 +8,9 @@ const { uploadProfile } = require("../middleware/uploads");
 
 router.post("/signup",signup);
 router.post("/login",login);
-router.post("/forget-password",tokenMiddleware, forgetPassword);
-router.post("/verify-otp",tokenMiddleware, verifyOtp);
-router.post("/reset-password",tokenMiddleware,resetPassword);
+router.post("/forget-password", forgetPassword);
+router.post("/verify-otp", verifyOtp);
+router.post("/reset-password",resetPassword);
 router.get("/profile", tokenMiddleware,adminProfile );
 router.put("/updateprofile", tokenMiddleware,updateProfile );
 // router.put("/notifications", tokenMiddleware,updateNotifications); comment

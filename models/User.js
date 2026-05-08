@@ -15,13 +15,15 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Please enter a valid email address"],
+      match: [/^[a-zA-Z0-9._%+-]+@(gmail\.com|yahoo\.com)$/,
+    
+      "Please enter a valid email address"],
     },
 
     password: {
       type: String,
       required: [true, "Password is required"],
-      minlength: [8, "Password must be at least 8 characters"],
+       
     },
 
     otp: {
@@ -44,6 +46,10 @@ const userSchema = new mongoose.Schema(
                 type: String,
                 match: [/^[6-9]\d{9}$/, "Please enter valid 10 digit phone number"],
             },
+    profileImage:{
+      type:String,
+      default:""
+    },       
     orders: {
       type: Number,
       default: 0,

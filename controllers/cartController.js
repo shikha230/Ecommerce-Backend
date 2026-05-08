@@ -1,5 +1,6 @@
 const Cart = require("../models/cart");
 const Product = require("../models/product");
+const logger = require("../helper/logger");
 
 
 // Add to Cart
@@ -72,24 +73,7 @@ exports.addtoCart = async (req, res) => {
     //     product.quantity -= item.quantity;
     //     await product.save();
     //   }
-    // }
-    // let installationCharges = 0; // default = 0 (agar installation nahi chahiye)
-    // if (installationRequired) {
-    //   const totalProducts = cart.products.reduce((sum, p) => sum + p.quantity, 0);
-    //   if (totalProducts >= 3) {
-    //     installationCharges = 0; // free installation// 
-    //     logger.info("Installation free (3 or more products)");
-    //   } else if (totalProducts === 1) {
-    //     installationCharges = 500; // example charge
-    //     logger.info("Installation charges applied: 500 (single product)");
-    //   } else {
-    //     installationCharges = 200; // example charge for 2 products
-    //     logger.info("Installation charges applied: 200 (two products)");
-    //   }
-    // } else {
-    //   logger.info("Installation not required, charges = 0");
-    // }
-    // cart.installationCharges = installationCharges;
+    
 
     await cart.save();
     logger.info(`Cart saved successfully for user: ${userId}`);
@@ -100,11 +84,14 @@ exports.addtoCart = async (req, res) => {
     res.status(200).json({ message: "Item added to cart", cart: populatedCart });
    
   } catch (err) {
-      logger.error(`Error in addToCart: ${err.message}`);
-    res.status(500).json({ message: err.message });
-  }
-};
-   
+  console.error("AddToCart Error:", err);   // full error log
+  res.status(500).json({
+    message: "Server error",
+    error: err.message,
+    stack: err.stack
+  });
+ }
+}   
 // update cart
 
 exports.updateCart = async (req, res) => {
@@ -160,28 +147,58 @@ exports.updateCart = async (req, res) => {
       productInCart.dimensions = dimensions;
       logger.debug(`Updated dimensions for product ${productId}: ${JSON.stringify(dimensions)}`);
     }
-    let installationCharges = 0; // default = 0 (agar installation nahi chahiye)
-    if (installationRequired) {
-      const totalProducts = cart.products.reduce((sum, p) => sum + p.quantity, 0);
-      logger.info(`Total products in cart after update: ${totalProducts}`);
+    //  let installationCharges = 0; // default = 0 (agar installation nahi chahiye)
+    //  if (installationRequired) {
+    //   const totalProducts = cart.products.reduce((sum, p) => sum + p.quantity, 0);
+    //   logger.info(`Total products in cart after update: ${totalProducts}`);
 
-      if (totalProducts >= 3) {
-        installationCharges = 0;
-        logger.info("Installation free (3 or more products)");
-      } else if (totalProducts === 1) {
-        installationCharges = 500; // example charge
-        logger.info("Installation charges applied: 500 (single product)");
-      } else {
-        installationCharges = 250; // example charge for 2 products
-        logger.info("Installation charges applied: 200 (two products)");
-      }
-    } else {
-      logger.info("Installation not required, charges = 0");
-    }   
-    cart.installationCharges = installationCharges;
+    //    if (totalProducts >= 3) {
+    //      installationCharges = 0;
+    //     logger.info("Installation free (3 or more products)");
+    //   } else if (totalProducts === 1) {
+    //      installationCharges = 500; // example charge
+    //      logger.info("Installation charges applied: 500 (single product)");
+    //   } else {
+    //      installationCharges = 250; // example charge for 2 products
+    //     logger.info("Installation charges applied: 250 (two products)");
+    //   }
+    //  } else {
+    //  logger.info("Installation not required, charges = 0");
+    // }   
+    //  cart.installationCharges = installationCharges;
+
+   let installationCharges = 0;
+
+// // अगर request में installationRequired आया है तो उसे use करो,
+// // वरना cart में पहले से saved flag use करो
+ const isInstallationRequired = 
+  installationRequired !== undefined ? installationRequired : cart.installationRequired;
+
+ if (isInstallationRequired) {  
+  const totalProducts = cart.products.reduce((sum, p) => sum + p.quantity, 0);
+   logger.info(`Total products in cart after update: ${totalProducts}`);
+
+   if (totalProducts >= 3) {
+    installationCharges = 0;
+     logger.info("Installation free (3 or more products)");
+   } else if (totalProducts === 1) {
+     installationCharges = 500;
+    logger.info("Installation charges applied: 500 (single product)");
+  } else {
+     installationCharges = 250;
+     logger.info("Installation charges applied: 250 (two products)");
+   }
+ } else {
+     logger.info("Installation not required, charges = 0");
+ }
+
+//  flag और charges दोनों cart में save करो
+ cart.installationRequired = isInstallationRequired;
+ cart.installationCharges = installationCharges;
+
     
     await cart.save();
-    logger.info(`Cart updated successfully for user: ${userId}, installationCharges: ${installationCharges}`);
+    logger.info(`Cart updated successfully for user: ${userId},installationRequired : ${isInstallationRequired}, installationCharges: ${installationCharges}`);
 
     const populatedCart = await Cart.findById(cart._id)
       .populate("products.product", "name price colour images");
@@ -243,7 +260,7 @@ exports.getCart = async (req, res) => {
 
     //  Shipping (free or fixed)
     let shipping = 0;
-    if (subtotal < 50000) {
+    if (subtotal < 10000) {
       shipping = 500; // example
     }
     logger.debug(`Shipping charges: ${shipping}`);
@@ -251,8 +268,11 @@ exports.getCart = async (req, res) => {
   //  Tax (optional 10%)
     const tax = Math.round(subtotal * 0.1);
     logger.debug(`Tax calculated: ${tax}`);
+
+    const installationRequired = cart.installationRequired || false;
+    logger.debug(`Installation required: ${installationRequired}`);
   
-  // const installationCharges = cart.installationCharges || 0;
+    const installationCharges = cart.installationCharges || 0;
     logger.debug(`Installation charges: ${installationCharges}`);
 
   //  Total
@@ -267,6 +287,7 @@ exports.getCart = async (req, res) => {
       discount,
       shipping,
       tax,
+      installationRequired,
       installationCharges,
       total,
       items: cart.products,

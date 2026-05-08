@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const logger = require("../helper/logger");
 const path = require("path"); 
+const emailService = require("../helper/emailServices");
 
 
 // ✅ Admin Signup
@@ -48,10 +49,20 @@ exports.signup = async (req, res) => {
 
     await admin.save();
     logger.info("-----signup------ Admin registered successfully ")
-    
+    // Optional: send confirmation mail
+    try{
+    await emailService.sendMail(
+      email,
+      "Admin Account Created",
+      `<p>Hello ${firstname},</p><p>Your admin account has been created successfully.</p>`,
+      `Hello ${firstname}, Your admin account has been created successfully.`
+    );
+    }catch(mailErr){
+    logger.warn("---singup---welcome email failed:"+mailErr.message);
+  }
     res.status(201).json({ success: true, message: "Admin registered successfully" });
   } catch (err) {
-    logger.error("-----Signup------ error message ")
+    logger.error("-----Signup------ error message: ",err.message)
     
     res.status(500).json({ error: err.message });
   }
@@ -124,6 +135,16 @@ exports.forgetPassword = async (req, res) => {
     admin.otp = otp;
     admin.otpExpire = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
     await admin.save();
+
+    // Mailer Integration
+    await emailService.sendMail(
+      email,
+      "Admin Password Reset OTP",
+      `<p>Hello ${admin.firstname},</p>
+       <p>Your OTP for password reset is <b>${otp}</b>. 
+       It will expire in 10 minutes.</p>`,
+      `Hello ${admin.firstname}, Your OTP is ${otp}. It will expire in 10 minutes.`
+    );
     logger.info("-----forgetPassword-----OTP sent to Email")
     res.json({ message: `OTP sent to ${email}`, otp }); // now only shown in demo response
   } catch (error) {
@@ -176,7 +197,12 @@ exports.resetPassword = async (req, res) => {
       logger.info("-----resetPasswordOtp-----Admin not found") 
       return res.status(400).json({ message: "Admin not found" });
     }
-
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
+   }
+   if (newPassword.length > 16) {
+    return res.status(400).json({ message: "Password cannot exceed 16 characters" });
+   }
     // hash new password
     const salt = await bcrypt.genSalt(10);
     admin.password = await bcrypt.hash(newPassword, salt);
@@ -186,10 +212,19 @@ exports.resetPassword = async (req, res) => {
     admin.otpExpire = null;
 
     await admin.save();
+    // Confirmation mail (optional)
+    await emailService.sendMail(
+      email,
+      "Admin Password Reset Successful",
+      `<p>Hello ${admin.firstname},</p>
+       <p>Your password has been reset successfully. 
+       If you did not request this change, please contact support immediately.</p>`,
+      `Hello ${admin.firstname}, Your password has been reset successfully. If you did not request this change, please contact support immediately.`
+    );
     logger.info("-----resetPasswordOtp-----Password reset successful")
     res.json({ message: "Password reset successful" });
   } catch (error) {
-    logger.error("----resetPassword----Server error in resetPassword")
+    logger.error("----resetPassword----Server error in resetPassword:",error.message)
 
     res.status(500).json({ message: "Server error in resetPassword" });
   }

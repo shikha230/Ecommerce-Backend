@@ -12,6 +12,7 @@ const orderRoutes = require("./Routes/orderRoutes");
 const paymentRoutes = require("./Routes/paymentRoutes");
 const contactRoutes = require("./Routes/contactRoutes");
 const customerRoutes = require("./Routes/customerRoutes");
+const reviewRoutes = require("./Routes/reviewRoutes");
 
 
 
@@ -76,6 +77,8 @@ app.use("/api/order", orderRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/customers", customerRoutes);
+app.use("/api/review", reviewRoutes);
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Error handling middleware (routes ke baad)

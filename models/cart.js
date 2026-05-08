@@ -35,7 +35,11 @@ const cartSchema = new mongoose.Schema(
         },
       },
     ],
-    
+  installationRequired: { 
+    type: Boolean, 
+    default: false 
+  },
+ 
   installationCharges: {
     type: Number,
     default: null
