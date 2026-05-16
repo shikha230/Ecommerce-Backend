@@ -8,8 +8,8 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_SECRET
 });
-// console.log("RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID);
-// console.log("RAZORPAY_SECRET:", process.env.RAZORPAY_SECRET);
+  console.log("RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID);
+  console.log("RAZORPAY_SECRET:", process.env.RAZORPAY_SECRET);
 
 // Create Razorpay Order
 exports.createPaymentOrder = async (req, res) => {
@@ -23,16 +23,17 @@ exports.createPaymentOrder = async (req, res) => {
       console.warn("⚠️ Order not found in DB for id:", orderId);
       return res.status(404).json({ message: "Order not found" });
     }
-    // console.log(order)
+    console.log(order)
     const options = {
       amount: order.total * 100, // paise
       currency: "INR",
       receipt: `receipt_${order._id}`
     };
-    // console.log("options------------",options)
+    console.log("options------------",options)
     const razorpayOrder = await razorpay.orders.create(options);
     console.log("razorpayOrder--------",razorpayOrder)
     order.razorpayOrderId = razorpayOrder.id;
+    order.paymentStatus = "Pending"   // जब तक payment verify नहीं होती
     await order.save();
 
     logger.info(`Razorpay order created successfully: ${razorpayOrder.id}`);
@@ -57,6 +58,7 @@ exports.createPaymentOrder = async (req, res) => {
 // Verify Payment
 exports.verifyPayment = async (req, res) => {
   try {
+    console.log("VerifyPayment req.body:", req.body);
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
     logger.info(`Verifying payment for Razorpay orderId: ${razorpayOrderId}`);
 
@@ -66,20 +68,29 @@ exports.verifyPayment = async (req, res) => {
 
     if (generatedSignature === razorpaySignature) {
       const order = await Order.findOne({ razorpayOrderId });
-      order.orderStatus = "Successful";   // ✅ यहाँ orderStatus update होगा
+      // order.orderStatus = "Successful"; 
+       order.paymentStatus = "Successful";   // ✅ यहाँ orderStatus update होगा
       order.razorpayPaymentId = razorpayPaymentId;
       order.razorpaySignature = razorpaySignature;
       await order.save();
-
+      
       logger.info(`Payment verified successfully for orderId: ${order._id}`);
 
       res.json({ success: true, message: "Payment verified successfully", order });
     } else {
       logger.warn(`Invalid payment signature for Razorpay orderId: ${razorpayOrderId}`);
+      
+      //  Payment fail होने पर DB में भी update करे
+       const order = await Order.findOne({ razorpayOrderId });
+       if (order) {
+        order.paymentStatus = "Failed";   // Payment fail
+        await order.save();
+  }
       res.status(400).json({ success: false, message: "Invalid signature" });
     }
   } catch (error) {
     logger.error(`Error verifying payment: ${error.message}`);
     res.status(500).json({ error: error.message });
   }
+
 };
