@@ -12,20 +12,20 @@ exports.signup = async (req, res) => {
     const { firstname, email, password, role } = req.body;
 
     // Manual validations
-    if (!firstname || firstname.length < 3) {
-      logger.info("-----Signup------ Name must be at least 3 characters ")
+    if (!firstname || firstname.length < 4) {
+      logger.info("-----Signup------ Name must be at least 4 characters ")
         
-      return res.status(400).json({ error: "Name must be at least 3 characters" });
+      return res.status(400).json({ error: "Name must be at least 4 characters" });
     }
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
       logger.info("-----Signup------ valid email is required ")
         
       return res.status(400).json({ error: "Valid email is required" });
     }
-    if (!password || password.length < 6) {
-       logger.info("-----Signup------ Password must be at least 6 characters ")
+    if (!password || password.length < 8) {
+       logger.info("-----Signup------ Password must be at least 8 characters ")
         
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
     }
 
     // Check if email already exists
@@ -88,9 +88,9 @@ exports.login = async (req, res) => {
     // Find admin by email
     const admin = await Admin.findOne({ email });
     if (!admin) {
-       logger.error("-----Login------ Invalid email or password ")
+       logger.error("-----Login------ Admin account not found  ")
         
-      return res.status(400).json({ error: "Invalid email or password" });
+      return res.status(400).json({ error: "Account not found. Please create an admin account first." });
     }
 
     // Compare password

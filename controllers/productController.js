@@ -14,7 +14,7 @@ exports.createProduct = async (req, res) => {
       return res.status(403).json({ message: "Access denied: Admin only" });
     }
 
-    const { name, price,discount,images,colour,size,quantity,specifications,description,careInstruction, inStock, featured,sold,category, dimensions,tags } = req.body;
+    const { name, price,discount,images,colour,size,quantity,specifications,description,careInstruction, inStock, featured,sold,category, dimensions,tags,installationRequired } = req.body;
      const product = new Product({
       name,
       price,
@@ -31,7 +31,8 @@ exports.createProduct = async (req, res) => {
       featured,
       sold,
       dimensions,
-      tags
+      tags,
+      installationRequired: installationRequired || false
     });
     
 
@@ -112,7 +113,11 @@ exports.getProductById = async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
     logger.info("----getproductsbyId-----Product fetched successfully")
-    res.status(200).json({ message: "Product fetched successfully", product });
+    res.status(200).json({ 
+    message: "Product fetched successfully", 
+    product,
+    installationRequired: product.installationRequired 
+  });
   } catch (error) {
     logger.error("---getproductbyId-----error")
     res.status(500).json({ error: "Server error", details: error.message });
@@ -155,11 +160,18 @@ exports.updateProduct = async (req, res) => {
         return res.status(404).json({ error: "Category not found" });
       }
     }
-
+    // ✅ installationRequired validation
+    if (req.body.installationRequired !== undefined) {
+      if (typeof req.body.installationRequired !== "boolean") {
+        return res.status(400).json({ error: "installationRequired must be true or false" });
+      }
+      product.installationRequired = req.body.installationRequired;
+    }
     // ✅ Partial update
     Object.assign(product, req.body);
 
     await product.save();
+    
     res.json({ message: "Product updated successfully", product });
   } catch (err) {
     res.status(500).json({ error: err.message });

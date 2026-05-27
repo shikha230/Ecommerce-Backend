@@ -1,97 +1,97 @@
 const Cart = require("../models/cart"); 
 const Order = require("../models/order");
 const logger= require("../helper/logger");
-const coupon = require("../models/coupon");
+// const coupon = require("../models/coupon");
+const Product = require("../models/product");
 
 exports.getOrderSummary = async (req, res) => {
   try {
     const userId = req.user.id;
-    const cart = await Cart.findOne({ user: userId })
-      .populate("products.product")
-      .populate("coupon");
+    const { source, orderId } = req.query;
 
-    if (!cart || cart.products.length === 0) {
-      logger.warn(`Order summary requested by user ${userId}, but cart is empty`);
-      return res.status(200).json({ message: "Cart is empty", summary: {} });
+    let items = [];
+    let order = null;  //// ✅ declare globally
+
+    if (source === "buynow" && orderId) {
+      order = await Order.findById(orderId)
+      .populate("products.product", "name price discount colour images installationRequired");
+        console.log("OrderId received:", orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      items = order.products;
+    } else {
+      const cart = await Cart.findOne({ user: userId })
+        .populate("products.product","name price discount colour images installationRequired");
+
+      if (!cart || cart.products.length === 0) {
+        return res.status(200).json({ message: "Cart is empty", summary: {} });
+      }
+      items = cart.products;
     }
 
     // Subtotal
     let subtotal = 0;
-    cart.products.forEach((item) => {
+    items.forEach((item) => {
       subtotal += item.product.price * item.quantity;
     });
-    logger.info(`Subtotal calculated: ${subtotal}`);
-    
+
     // Product Discount
     let discount = 0;
-    cart.products.forEach((item) => {
+    items.forEach((item) => {
       if (item.product.discount) {
         discount += (item.product.price * item.quantity * item.product.discount) / 100;
       }
     });
-    logger.info(`Product discount calculated: ${discount}`);
-    
-    // Coupon Discount
-    let couponDiscount = 0;
-    if (cart.coupon) {
-      if (cart.coupon.discountType === "percentage") {
-        couponDiscount = (subtotal * cart.coupon.discountValue) / 100;
-        if (cart.coupon.maxDiscount && couponDiscount > cart.coupon.maxDiscount) {
-          couponDiscount = cart.coupon.maxDiscount;
-        }
-      } else if (cart.coupon.discountType === "fixed") {
-        couponDiscount = cart.coupon.discountValue;
-      }
-      logger.info(`Coupon discount applied: ${couponDiscount}`);
-    }
 
     // Shipping
     let shipping = subtotal < 10000 ? 500 : 0;
-    logger.info(`Shipping charges: ${shipping}`);
-    
+
     // Tax
     const tax = Math.round(subtotal * 0.1);
-    logger.info(`Tax calculated: ${tax}`);
 
-    // Installation Required & Charges
-    const installationRequired = cart.installationRequired || false;
-   let installationCharges = 0;
+    let installationCharges = 0;
 
-    if (installationRequired) {
-     const totalProducts = cart.products.reduce((sum, p) => sum + p.quantity, 0);
-     if (totalProducts >= 3) {
-      installationCharges = 0;
-    } else if (totalProducts === 1) {
-      installationCharges = 500;
-    } else {
-      installationCharges = 250;
-    }
+// Count products जिनमें admin ने installationRequired true किया है
+// और user ने भी Yes चुना है
+const installationProductCount = items.reduce((count, p) => {
+  if (p.product.installationRequired && p.installationRequired === true) {
+    count += p.quantity;  // ✅ quantity भी count करें
   }
-  logger.info(`Installation required: ${installationRequired},installationcharges: ${installationCharges}`);
+  return count;
+}, 0);
 
+if (installationProductCount === 1) {
+  installationCharges = 500;
+  logger.info("Installation charges applied: 500 (single installation-required product)");
+} else if (installationProductCount === 2) {
+  installationCharges = 250;
+  logger.info("Installation charges applied: 250 (two installation-required products)");
+} else if (installationProductCount >= 3) {
+  installationCharges = 0;
+  logger.info("Installation free (3 or more installation-required products)");
+} else {
+  installationCharges = 0; // user ने No चुना या admin ने false किया
+  logger.info("No installation required products, charges = 0");
+}
 
-    
-    // // Installation Charges
-    // const installationCharges = cart.installationCharges || 0;
-    // logger.info(`Installation charges: ${installationCharges}`);
+  
 
-    // Final Total
-    const total = subtotal - discount - couponDiscount + shipping + tax + installationCharges;
-    logger.info(`Final total: ${total}`);;
+const total = subtotal - discount + shipping + tax + installationCharges;
 
     res.status(200).json({
       message: "Order summary generated",
       summary: {
+        source,
+        orderId: order?._id || null,
         subtotal,
         discount,
-        couponDiscount,
         shipping,
         tax,
-        installationRequired,
-        installationCharges, // 
+        installationCharges,
         total,
-        items: cart.products,
-        coupon: cart.coupon || null,
+        items
       },
     });
   } catch (error) {
@@ -100,37 +100,39 @@ exports.getOrderSummary = async (req, res) => {
 };
 exports.createOrder = async (req, res) => {
   try {
-    const userId = req.user.id;   // JWT से userId लेना बेहतर है
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first to create an order"
+      });
+    }
+
+    const userId = req.user.id;
     const { shippingAddress } = req.body;
 
-    logger.info(`Order creation started for userId: ${userId}`);
-
     const cart = await Cart.findOne({ user: userId })
-      .populate("products.product")
-      .populate("coupon");
+      .populate("products.product","name price images");
 
     if (!cart || cart.products.length === 0) {
-      logger.warn(`Cart is empty for userId: ${userId}`);
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    // Items mapping
     const items = cart.products.map((item) => ({
-      productId: item.product._id,
+      product: item.product._id,
       name: item.product.name,
+      images: item.product.images,
       price: item.product.price,
       quantity: item.quantity,
       size: item.size,
       dimensions: item.dimensions,
+      installationRequired: item.installationRequired,
     }));
 
-    // Subtotal
     let subtotal = 0;
     cart.products.forEach((item) => {
       subtotal += item.product.price * item.quantity;
     });
 
-    // Product Discount
     let discount = 0;
     cart.products.forEach((item) => {
       if (item.product.discount) {
@@ -138,17 +140,90 @@ exports.createOrder = async (req, res) => {
       }
     });
 
-    // Coupon Discount
-    let couponDiscount = 0;
-    if (cart.coupon) {
-      if (cart.coupon.discountType === "percentage") {
-        couponDiscount = (subtotal * cart.coupon.discountValue) / 100;
-        if (cart.coupon.maxDiscount && couponDiscount > cart.coupon.maxDiscount) {
-          couponDiscount = cart.coupon.maxDiscount;
-        }
-      } else if (cart.coupon.discountType === "fixed") {
-        couponDiscount = cart.coupon.discountValue;
-      }
+    let shipping = subtotal < 10000 ? 500 : 0;
+    const tax = Math.round(subtotal * 0.1);
+    let installationCharges = 0;
+
+// Count products जिनमें admin ने installationRequired = true किया है
+// और user ने भी Yes चुना है (p.installationRequired === true)
+const installationProductCount = cart.products.reduce((count, p) => {
+  if (p.product.installationRequired && p.installationRequired === true) {
+    count += p.quantity;  // ✅ quantity भी count करें
+  }
+  return count;
+}, 0);
+
+// Charges calculation
+if (installationProductCount === 1) {
+  installationCharges = 500;
+} else if (installationProductCount === 2) {
+  installationCharges = 250;
+} else if (installationProductCount >= 3) {
+  installationCharges = 0; // free
+} else {
+  installationCharges = 0; // ✅ user ने No चुना या admin ने false किया
+}
+
+   
+    const total = subtotal - discount + shipping + tax + installationCharges;
+
+    const order = new Order({
+      userId,
+      products: items,
+      shippingAddress,
+      subtotal,
+      discount,
+      shipping,
+      tax,
+      installationCharges,
+      total,
+      source: "cart",
+    });
+
+    await order.save();
+
+    res.json({ message: "Order created successfully", order });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+exports.buyNow = async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Please login first to buy product"
+      });
+    }
+
+    const userId = req.user.id;
+    const { productId, quantity = 1, installationRequired } = req.body; // ✅ sirf product fields lo
+
+    // ✅ Product fetch karo
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // ✅ Order item mapping
+    const item = {
+      product: product._id,
+      name: product.name,
+      images: product.images,
+      price: product.price,
+      quantity,
+      size: req.body.size || null,
+      dimensions: req.body.dimensions || null,
+      installationRequired: installationRequired || false,
+    };
+
+    // Subtotal
+    const subtotal = product.price * quantity;
+
+    // Discount
+    let discount = 0;
+    if (product.discount) {
+      discount = (subtotal * product.discount) / 100;
     }
 
     // Shipping
@@ -157,70 +232,97 @@ exports.createOrder = async (req, res) => {
     // Tax
     const tax = Math.round(subtotal * 0.1);
 
-    const installationRequired = cart.installationRequired || false;
-    let installationCharges = 0;
-
-    if (installationRequired) {
-     const totalProducts = cart.products.reduce((sum, p) => sum + p.quantity, 0);
-     if (totalProducts >= 3) {
-      installationCharges = 0;
-    } else if (totalProducts === 1) {
-      installationCharges = 500;
-    } else {
-      installationCharges = 250;
-    }
+    // Installation charges
+    if (product.installationRequired) {
+      if (installationRequired === true) {
+        if (quantity === 1) installationCharges = 500;
+        else if (quantity === 2) installationCharges = 250;
+        else if (quantity >= 3) installationCharges = 0;
+      } else {
+    installationCharges = 0;
   }
-  logger.info(`Installationrequired: ${installationRequired},installationcharges: ${installationCharges}`);
-
-    // // ✅ Installation Charges (from cart)
-    // const installationCharges = cart.installationCharges || 0;
-    // logger.info(`Installation charges applied: ${installationCharges}`);
-
-    // Final Total
-    const total = subtotal - discount - couponDiscount + shipping + tax + installationCharges;
-    logger.info(
-      `Order calculation done: subtotal=${subtotal}, discount=${discount}, couponDiscount=${couponDiscount}, shipping=${shipping}, tax=${tax},installationCharges=${installationCharges}, total=${total}`
-    );
-    // //  Billing Address Logic
-    // const finalBillingAddress = useSameBilling ? shippingAddress : billingAddress;
-    //  if (!finalBillingAddress) {
-    //   logger.info("----BillingAddress----Billing address is required")
-    //   return res.status(400).json({ message: "Billing address is required" });
-    // }
+} else {
+  installationCharges = 0; // admin ने ही false किया है
+}
 
 
+    // ✅ Final total
+    const total = subtotal - discount + shipping + tax + installationCharges;
 
-    //  Create Order
+    // ✅ Order create (shippingAddress abhi empty rakho)
     const order = new Order({
       userId,
-      products: items,
-      shippingAddress,
-      
+      products: [item],
       subtotal,
       discount,
-      couponDiscount,
       shipping,
       tax,
-      installationRequired,
-      installationCharges, //
+      installationCharges,
       total,
-      coupon: cart.coupon ? cart.coupon._id : null,
-      
+      coupon: null,
+      shippingAddress: {}, // ✅ empty, checkout page par fill hoga
+      paymentStatus: "Pending",
+      orderStatus: "Pending",
+      source: "buynow"   // ✅ Add this field
     });
 
     await order.save();
-    logger.info(`Order saved successfully for userId: ${userId}, orderId: ${order._id}`);
 
-    // Clear cart
-    await Cart.deleteOne({ user: userId });
-    logger.info(`Cart cleared for userId: ${userId}`);
-
-    res.json({ message: "Order created successfully", order });
+    res.json({ 
+      success: true,
+      message: "Order created successfully via Buy Now", 
+      orderId: order._id 
+    });
   } catch (err) {
-    logger.error(`Order creation error for userId: ${req.user.id}, error: ${err.message}`);
+    console.error("Order summary error:", err);
     res.status(500).json({ message: err.message });
   }
 };
+exports.updateOrderAddress = async (req, res) => {
+  try {
+    const { orderId } = req.params;   // URL से orderId लेना
+    const { shippingAddress } = req.body;  // Body से पूरा shippingAddress object लेना
+
+    // Order fetch करो
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // // अगर पहले से address है और आप overwrite नहीं करना चाहते तो check डाल सकते हैं
+    // if (order.shippingAddress && Object.keys(order.shippingAddress).length > 0) {
+    //   return res.status(400).json({ 
+    //     message: "Shipping address already exists for this order" 
+    //   });
+    // }
+
+    // नया address assign करो
+    order.shippingAddress = {
+      contact: {
+        email: shippingAddress.contact?.email,
+        phone: shippingAddress.contact?.phone,
+      },
+      delivery: {
+        country: shippingAddress.delivery?.country,
+        firstname: shippingAddress.delivery?.firstname,
+        lastname: shippingAddress.delivery?.lastname,
+        address: shippingAddress.delivery?.address,
+        city: shippingAddress.delivery?.city,
+        state: shippingAddress.delivery?.state,
+        pincode: shippingAddress.delivery?.pincode,
+        phone: shippingAddress.delivery?.phone,
+      }
+    };
+
+    await order.save();
+
+    res.json({ message: "Shipping address updated successfully", order });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
 // Get Orders by User
 exports.getOrders = async (req, res) => {
   try {

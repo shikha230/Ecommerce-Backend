@@ -87,8 +87,8 @@ exports.login = async (req, res) => {
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
-      logger.error("-----login------Invalid email or password  ")
-      return res.status(400).json({ error: "Invalid email or password" });
+      logger.error("-----login------User not found, please create account first  ")
+      return res.status(400).json({ error: "User not found, please create account first" });
     }
 
     // Compare password
@@ -384,20 +384,33 @@ exports.logoutSession = async (req, res) => {
   try {
     const { token } = req.body;
 
-    // 🔹 User की पहचान JWT से होगी
     if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized, no user found" });
+      logger.warn("-----logoutSession----- Unauthorized request, no user found");
+      return res.status(401).json({ success: false, message: "Unauthorized, no user found" });
     }
 
-    // 🔹 User की sessions array से token हटाएँ
-    await User.findByIdAndUpdate(req.user.id, {
-      $pull: { sessions: { token } }
-    });
+    if (!token) {
+      logger.warn("-----logoutSession----- No token provided in request body");
+      return res.status(400).json({ success: false, message: "Token is required to logout" });
+    }
 
-    logger.info(`-----logoutSession----- User: ${req.user.email} logged out`);
+    // अगर sessions array objects हैं → { token }
+    // अगर sessions array strings हैं → सिर्फ token
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $pull: { sessions: token } },   // string case
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      logger.error(`-----logoutSession----- User not found: ${req.user.id}`);
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    logger.info(`-----logoutSession----- User: ${req.user.email} logged out, token removed`);
     res.json({ success: true, message: "Session removed" });
   } catch (err) {
-    logger.error("-----logoutSession----- Error", err);
-    res.status(500).json({ message: err.message });
+    logger.error("-----logoutSession----- Error during logout", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };

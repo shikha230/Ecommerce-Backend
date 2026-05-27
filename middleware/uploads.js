@@ -37,15 +37,24 @@ const profileStorage = multer.diskStorage({
     cb(null, req.user.id + "-user-" + Date.now() + ext);
   }
 });
+ const proofStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "../uploads/returnImages"));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, req.user.id + "-proof-" + Date.now() + ext);
+  }
+});
 
 //  File filter (optional)
  const fileFilter = (req, file, cb) => {
-   const allowedTypes = /jpeg|jpg|png|webp/;
+   const allowedTypes = /jpeg|jpg|png|webp|mp4|mov|avi|mkv/;
   const ext = path.extname(file.originalname).toLowerCase();
    if (allowedTypes.test(ext)) {
     cb(null, true);
    } else {
-    cb(new Error("Only images are allowed"), false);
+    cb(new Error("Only images and videos are allowed"), false);
    }
  };
 
@@ -55,4 +64,8 @@ const uploadProduct = multer({ storage: productStorage, fileFilter,limits: { fil
  });
 
 const uploadUserProfile = multer({ storage: userProfileStorage, fileFilter });
-module.exports = { uploadProfile,uploadProduct,uploadUserProfile };
+const uploadProof = multer({storage: proofStorage,fileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB limit for videos
+});
+
+module.exports = { uploadProfile,uploadProduct,uploadUserProfile,uploadProof };

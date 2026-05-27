@@ -89,6 +89,11 @@ const productSchema = new mongoose.Schema({
     type: [String],   // Array of strings
     default: []
   },
+  
+  installationRequired: {
+    type: Boolean,
+    default: false
+  },
 
   featured: { 
     type: Boolean, 

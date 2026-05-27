@@ -7,10 +7,15 @@ const tokenMiddleware = require("../middleware/tokenMiddleware");
 
 // Get user's cart
 // /Order Summary (Checkout Page)
-router.get("/summary/:couponId", tokenMiddleware,orderController.getOrderSummary);
+router.get("/summary", tokenMiddleware,orderController.getOrderSummary);
 
 
 router.post("/create", tokenMiddleware,orderController.createOrder);
+
+router.post("/buynow", tokenMiddleware,orderController.buyNow);
+// Shipping address update route
+router.put("/address/:orderId",tokenMiddleware, orderController.updateOrderAddress);
+
 router.get("/my-orders",tokenMiddleware, orderController.getOrders);
 //  Track Order (User side)
 router.get("/:orderId/track",tokenMiddleware, orderController.trackOrder);

@@ -11,14 +11,23 @@ const orderSchema = new mongoose.Schema(
     products: [
       {
         product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+        name:{type:String},
+        images: [
+       {
+         type: String,
+          default: ""
+         }
+        ],
         quantity: { type: Number, required: true },
         size: { type: String },
-        dimensions: {
+        dimensions:[ {
           length: Number,
           width: Number,
           height: Number,
           unit: String,
         },
+      ],
+
         price: { type: Number, required: true },
       },
     ],
@@ -43,7 +52,7 @@ const orderSchema = new mongoose.Schema(
          contact: {
              email: {
                 type: String,
-                required:true,
+                required:false,
                 lowercase: true,
                 trim: true,
                  match: [/^\S+@\S+\.\S+$/, "Please use valid email"],
@@ -55,28 +64,43 @@ const orderSchema = new mongoose.Schema(
             },
         },
         delivery: {
-            country: { type: String, required: true },
-            firstname: { type: String, required: true },
-            lastname: { type: String, required: true },
-            address: { type: String, required: true },
-            city: { type: String, required: true },
-            state: { type: String, required: true },
+            country: { type: String, required: false},
+            firstname: { type: String, required: false },
+            lastname: { type: String, required: false },
+            address: { type: String, required:false },
+            city: { type: String, required: false },
+            state: { type: String, required: false },
             pincode: {
                 type: String,
-                required: true,
+                required: false,
                 match: [/^[1-9][0-9]{5}$/, "Invalid Pincode"],
             },
             phone: {
                 type: String,
-                required: true,
+                required: false,
                 match: [/^[6-9]\d{9}$/, "Please enter valid 10 digit phone number"],
             },
         },
     
     },
+    installationRequired: {
+    type: Boolean,
+    default: false
+  },
+    installationCharges: { 
+      type: Number, 
+      default: 0 
+  },
+  source: { 
+    type: String, 
+    enum: ["cart", "buynow"], 
+    required: true 
+  },
+
+
    orderStatus: {
       type: String,
-      enum: ["Pending", "Placed", "Paid", "Shipped", "Delivered", "Cancelled"],
+      enum: ["Pending", "Placed", "Payment Initiated","Paid", "Shipped", "Delivered", "Cancelled"],
       default: "Placed",
     },
     statusTimeline:[{

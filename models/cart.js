@@ -44,12 +44,16 @@ const cartSchema = new mongoose.Schema(
     type: Number,
     default: null
   },
+  isActive: { 
+    type: Boolean, 
+    default: true 
+  },
 
-  coupon: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Coupon",
-      default: null,
-    },
+  // coupon: {
+  //     type: mongoose.Schema.Types.ObjectId,
+  //     ref: "Coupon",
+  //     default: null,
+  //   },
   },
   { timestamps: true },
 );
