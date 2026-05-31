@@ -12,10 +12,10 @@ exports.signup = async (req, res) => {
     const { firstname, email, password, role } = req.body;
 
     // Manual validations
-    if (!firstname || firstname.length < 4) {
-      logger.info("-----Signup------ Name must be at least 4 characters ")
+    if (!firstname ) {
+      logger.info("-----Signup------ Name must be requried ")
         
-      return res.status(400).json({ error: "Name must be at least 4 characters" });
+      return res.status(400).json({ error: "Name must be required" });
     }
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
       logger.info("-----Signup------ valid email is required ")

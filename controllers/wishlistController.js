@@ -59,8 +59,6 @@ exports.getWishlist = async (req, res) => {
   }
 };
 
-
-
 // Remove from Wishlist
 exports.removeWishlist = async (req, res) => {
   try {

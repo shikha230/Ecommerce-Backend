@@ -14,7 +14,7 @@ exports.createProduct = async (req, res) => {
       return res.status(403).json({ message: "Access denied: Admin only" });
     }
 
-    const { name, price,discount,images,colour,size,quantity,specifications,description,careInstruction, inStock, featured,sold,category, dimensions,tags,installationRequired } = req.body;
+    const { name, price,discount,images,colour,size,quantity,specifications,description,careInstruction, inStock, featured,sold,category, dimensions,tags,installationRequired,isBestSelling  } = req.body;
      const product = new Product({
       name,
       price,
@@ -32,7 +32,9 @@ exports.createProduct = async (req, res) => {
       sold,
       dimensions,
       tags,
-      installationRequired: installationRequired || false
+      installationRequired: installationRequired || false,
+      isBestSelling: isBestSelling || false   // ✅ default false, admin set karega
+
     });
     
 
@@ -262,24 +264,66 @@ exports.getfeaturedProduct = async (req, res) => {
   }
 };
 
-// ✅ Get Best Selling Products
+// Update Best Selling Flag (Admin only)
+exports.updateBestSellingFlag = async (req, res) => {
+  try {
+    if (req.user.role !== "admin" && req.user.role !== "superadmin") {
+      logger.warn("-----updateBestSellingFlag----- Access denied: Non-admin tried to update BestSelling flag");
+      return res.status(403).json({ message: "Access denied: Admin only" });
+    }
+
+    const { productId, isBestSelling } = req.body;
+
+    const product = await Product.findByIdAndUpdate(
+      productId,
+      { isBestSelling },
+      { new: true }
+);
+    if (!product) {
+      logger.warn(`-----updateBestSellingFlag----- Product not found: ${productId}`);
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    product.isBestSelling = isBestSelling;
+    await product.save();
+
+    logger.info(`-----updateBestSellingFlag----- Product '${product.name}' updated: isBestSelling = ${isBestSelling}`);
+
+    res.status(200).json({
+      message: `Product ${isBestSelling ? "marked" : "unmarked"} as Best Selling successfully`,
+      product
+    });
+  } catch (error) {
+    logger.error("-----updateBestSellingFlag----- Server error: " + error.message);
+    res.status(500).json({ error: "Server error", details: error.message });
+  }
+};
+
+//  ✅ Get Best Selling Products
 exports.getbestSellingProduct = async (req, res) => {
   try {
     let { limit } = req.query;
-    limit = parseInt(limit) || 10; // default top 10
+    // limit = parseInt(limit) || 5; // default top 10
+      limit = Number(limit) > 0 ? Number(limit) : 10; // default top 5
     console.log("Limit value:", limit);
-    const product = await Product.find({ is_delete: { $ne: true } })
-      .populate("category")
-      .sort({ sold: -1 }) // highest sold first
-      .limit(limit);
-    
+     
+   const products = await Product.find({ isBestSelling: true })
+   .sort({ isBestSelling: -1, sold: -1 })  // first admin flag, then sold count
+   .limit(limit)
+   .populate("category");
+
+   
     if (!product || product.length === 0) {
       logger.info("----getBestSellingProducts-----No best selling products found");
       return res.status(404).json({ message: "No best selling products found" });
     }
 
     logger.info("----getBestSellingProducts-----Best selling products fetched successfully");
-    res.status(200).json({ product });
+    res.status(200).json({product 
+        
+     });
+    
+
   } catch (error) {
     logger.error("----getBestSellingProducts-----error");
     res.status(500).json({ error: "Server error", details: error.message });
@@ -366,7 +410,9 @@ exports.uploadProductImages = async (req, res) => {
     }
 
     // multer se multiple files aayengi
-    const filenames = req.files.map(file => file.filename);
+    // const filenames = req.files.map(file => file.filename);
+     // path add 
+     const filenames = req.files.map(file =>file.filename);
 
     // productId body se aayega
     const product = await Product.findByIdAndUpdate(

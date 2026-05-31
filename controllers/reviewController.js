@@ -57,6 +57,17 @@ exports.addReview = async (req, res) => {
       });
     }
     await review.save();
+  //  Calculate average rating & numReviews after new review
+  const reviews = await Review.find({ product: id });
+
+  const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+
+  product.averageRating = avgRating;
+  product.numReviews = reviews.length;
+
+  await product.save();
+
+
     res.status(201).json({
       message: "Review added successfully",
       review: {
@@ -68,10 +79,10 @@ exports.addReview = async (req, res) => {
          userName: review.dummyUser
       ? `${review.dummyUser.firstName} ${review.dummyUser.lastName}`
       : (req.user.fullname || "Verified User")
-  }
-      //     ? `${review.dummyUser.firstName} ${review.dummyUser.lastName}`
-      //     : (req.user.fullname || "Verified User")
-      // }
+  },
+      averageRating: product.averageRating,
+      numReviews: product.numReviews
+      
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -91,53 +102,30 @@ exports.getProductReviews = async (req, res) => {
       .populate("product", "name price");
 
     if (!reviews || reviews.length === 0) {
-      return res.json({ message: "No reviews yet for this product" });
+      return res.json({ 
+        success: true,
+        message: "No reviews yet for this product",
+        averageRating: 0,
+        numReviews: 0,
+        reviews: []
+      });
     }
-
+  //   Calculate average rating & numReviews
+    const numReviews = reviews.length;
+    const averageRating = reviews.reduce((sum, r) => sum + r.rating, 0) / numReviews;
+   
     res.json({
       success: true,
       message: "Reviews fetched successfully",
+      numReviews,
+      averageRating: Number(averageRating.toFixed(1)), // one decimal place
       reviews
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
-
-
-
-
-
-// // review update
-
-// exports.updateReview = async (req, res) => {
-//   try {
-//     const { reviewId } = req.params;
-//     const { rating, comment } = req.body;
-
-//     const review = await Review.findById(reviewId);
-//     if (!review) {
-//       return res.status(404).json({ message: "Review not found" });
-//     }
-
-//     // ✅ Check permissions
-//     if (req.user.role === "admin" || review.user.toString() === req.user._id.toString()) {
-//       // Update fields
-//       review.rating = rating || review.rating;
-//       review.comment = comment || review.comment;
-
-//       await review.save();
-
-//       return res.status(200).json({ message: "Review updated successfully", review });
-//     } else {
-//       return res.status(403).json({ message: "You are not allowed to update this review" });
-//     }
-//   } catch (error) {
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
-   exports.updateReview = async (req, res) => {
+exports.updateReview = async (req, res) => {
   try {
     const { reviewId } = req.params;
     const { rating, comment, dummyFirstName, dummyLastName } = req.body;
@@ -153,24 +141,24 @@ exports.getProductReviews = async (req, res) => {
     //   return res.status(404).json({ message: "Review not found", reviewId });
     // // }
    if (!review) {
-  // ⭐ Console mein raw info print karo
-  console.warn("⚠️ Review not found in DB");
-  console.log("👉 ReviewId received from request:", reviewId);
+  //  
+  console.warn(" Review not found in DB");
+  console.log(" ReviewId received from request:", reviewId);
 
-  // ⭐ Agar productId bhi available hai to uske reviews print karo
+  //  Agar productId bhi available hai to uske reviews print karo
    if (req.params.id) {
     const productReviews = await Review.find({ product: req.params.id });
-    console.log("👉 All reviews for this product:", productReviews);
+    console.log(" All reviews for this product:", productReviews);
    }
 
-  // ⭐ Logger mein structured info save karo
+  // Logger mein structured info save karo
   logger.warn("Review not found", { 
     reviewId, 
     productId: req.params.id || null, 
     user: req.user 
   });
 
-  // ⭐ Response mein extra info bhejo (sirf debugging ke liye)
+  // Response mein extra info bhejo (sirf debugging ke liye)
   return res.status(404).json({ 
     message: "Review not found", 
     reviewId, 
@@ -200,7 +188,21 @@ exports.getProductReviews = async (req, res) => {
     }
 
     await review.save();
+
     await review.populate("user", "fullname");
+    
+
+//  Recalculate average rating & numReviews for the product
+    const reviews = await Review.find({ product: review.product });
+    const numReviews = reviews.length;
+    const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / numReviews;
+
+    const product = await Product.findById(review.product);
+    if (product) {
+    product.averageRating = avgRating;
+    product.numReviews = numReviews;
+    await product.save();
+   }
 
     logger.info("Review updated successfully", { reviewId });
 
@@ -219,12 +221,10 @@ exports.getProductReviews = async (req, res) => {
     });
   } catch (error) {
     logger.error("Update Review Error", { message: error.message, stack: error.stack });
-    console.error("❌ Update Review Error:", error); // ⭐ console log bhi add kar diya
+    console.error(" Update Review Error:", error); //  console log bhi add kar diya
     res.status(500).json({ error: error.message, stack: error.stack });
   }
 };   
-
-
 exports.deleteReview = async (req, res) => {
   try {
     const { reviewId } = req.params;
@@ -238,18 +238,38 @@ exports.deleteReview = async (req, res) => {
     const isOwner = review.user && review.user.toString() === currentUserId;
     const isAdmin = req.user.role === "admin";
 
-    if (isOwner && !isAdmin) {
-      await Review.findByIdAndDelete(reviewId);
-      return res.status(200).json({ message: "Review deleted successfully" });
-    } else if (isAdmin) {
-      await Review.findByIdAndDelete(reviewId);
-      return res.status(200).json({ message: "Review deleted successfully by admin" });
-    } else {
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({ message: "You are not allowed to delete this review" });
     }
 
+    //  Delete review
+    await Review.findByIdAndDelete(reviewId);
+
+    //  Recalculate average rating & numReviews for the product
+    const reviews = await Review.find({ product: review.product });
+    const numReviews = reviews.length;
+    const avgRating = numReviews > 0 
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / numReviews 
+      : 0;
+
+    const product = await Product.findById(review.product);
+    if (product) {
+      product.averageRating = avgRating;
+      product.numReviews = numReviews;
+      await product.save();
+    }
+
+    return res.status(200).json({ 
+      message: isAdmin ? "Review deleted successfully by admin" : "Review deleted successfully",
+      averageRating: product ? product.averageRating : 0,
+      numReviews: product ? product.numReviews : 0
+    });
+
   } catch (error) {
-    console.error("❌ Delete Review Error:", error); // ⭐ console log
+    console.error("Delete Review Error:", error);
     res.status(500).json({ error: error.message, stack: error.stack });
   }
-};   
+};
+
+
+

@@ -99,6 +99,20 @@ const productSchema = new mongoose.Schema({
     type: Boolean, 
     default: false
   },
+  isBestSelling: {
+  type: Boolean,
+  default: false
+  },
+  
+  averageRating: { 
+  type: Number,
+  default: 0 
+  },
+  
+  numReviews: { 
+  type: Number, 
+  default: 0 
+  },
   sold: { 
     type: Number,
      default: 0 

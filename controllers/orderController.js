@@ -111,7 +111,7 @@ exports.createOrder = async (req, res) => {
     const { shippingAddress } = req.body;
 
     const cart = await Cart.findOne({ user: userId })
-      .populate("products.product","name price images");
+      .populate("products.product","name price images discount quantity inStock");
 
     if (!cart || cart.products.length === 0) {
       return res.status(400).json({ message: "Cart is empty" });
@@ -181,6 +181,18 @@ if (installationProductCount === 1) {
     });
 
     await order.save();
+    // 🔹 Update sold & stock for each product
+    
+    for (const item of cart.products) {
+      await Product.findByIdAndUpdate( 
+        item.product._id,
+      {
+      $inc: { sold: item.quantity, quantity: -item.quantity },
+      $set: { inStock: (product.quantity - item.quantity) <= 0 }
+    }, { new: true }
+  );
+
+}     
 
     res.json({ message: "Order created successfully", order });
   } catch (err) {
@@ -267,7 +279,15 @@ exports.buyNow = async (req, res) => {
     });
 
     await order.save();
-
+    
+    await Product.findByIdAndUpdate(
+   productId,
+   {
+    $inc: { sold: quantity, quantity: -quantity },
+    $set: { inStock: (product.quantity - quantity) <= 0 }
+   },
+   { new: true }
+  );
     res.json({ 
       success: true,
       message: "Order created successfully via Buy Now", 
