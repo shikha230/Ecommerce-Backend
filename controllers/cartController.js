@@ -77,7 +77,7 @@ exports.addtoCart = async (req, res) => {
     logger.info(`Cart saved successfully for user: ${userId}`);
 
     const populatedCart = await Cart.findById(cart._id)
-      .populate("products.product", "name price colour images installationRequired");
+      .populate("products.product", "name price colour images installationRequired averageRating numReviews");
 
     res.status(200).json({ message: "Item added to cart", cart: populatedCart });
   } catch (err) {
@@ -185,8 +185,8 @@ if (installationProductCount === 1) {
      await cart.save();
 
      const populatedCart = await Cart.findById(cart._id)
-      .populate("products.product", "name price colour images installationRequired");
-
+      .populate("products.product", "name price colour images installationRequired averageRating numReviews ");
+      
        res.status(200).json({ 
         message: "Cart updated", 
       cart: populatedCart 
@@ -202,7 +202,7 @@ exports.getCart = async (req, res) => {
     const userId = req.user.id;
     // const cart = await Cart.findOne({ user: userId }).populate("products.product").populate("coupon"); // coupon details भी आएंगे
       const cart = await Cart.findOne({ user: userId })
-      .populate("products.product", "name price colour images discount installationRequired") // ✅ extra fields
+      .populate("products.product", "name price colour images discount installationRequired averageRating numReviews") // ✅ extra fields
       
 
     if (!cart || cart.products.length === 0) {

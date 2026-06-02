@@ -15,6 +15,10 @@ const wishlistSchema = new mongoose.Schema(
           ref: "Product",
           required: true
         },
+        liked: { 
+          type: Boolean, 
+          default: true
+         },  // user ने like किया है
         size: {
           type: String,
           enum: ["small", "medium", "large"],

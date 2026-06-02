@@ -24,7 +24,7 @@ router.get('/by-category/:categoryId',productController.getProductByCategory);
 
 router.get('/products/:featured', productController.getfeaturedProduct);
 router.get('/products/best-selling',productController.getbestSellingProduct);
-router.put('/update/best-selling',productController.updateBestSellingFlag);
+// router.put('/update/best-selling',productController.updateBestSellingFlag);
 router.get('/byfilter/price',productController.getfilterByPrice);
 router.get("/recent-searches",tokenMiddleware,productController.getrecentSearches);
 

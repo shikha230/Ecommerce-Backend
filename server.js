@@ -21,16 +21,16 @@ const returnRoutes = require("./Routes/returnRoutes");
 const path = require("path");
 
 const cors = require("cors");
-//  const allowedOrigins = [
+  const allowedOrigins = [
 //   "http://187.77.99.134",
 //   "http://localhost:3000",
 //   "http://localhost:5173",
 //   "http://localhost:5174",
 //   "http://localhost:5175",
-  //  "http://localhost:5176",
+  "http://localhost:5176",
 //   "http://localhost:5177",
 //   "http://localhost:5178",
-//  ];
+  ];
 
 const connect = require("./config/connect");
 connect();

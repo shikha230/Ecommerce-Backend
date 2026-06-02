@@ -22,13 +22,18 @@ exports.addtoWishlist = async (req, res) => {
       logger.warn("AddToWishlist: product already exists in wishlist");
       return res.status(400).json({ message: "Product already in wishlist" });
     }
-    wishlist.products.push({ product: productId });
+    wishlist.products.push({ product: productId, liked: true  });
     await wishlist.save();
- // 🔹 Populate product details before sending response
+ 
+    //  Populate product details before sending response
     wishlist = await Wishlist.findOne({ user: userId }).populate("products.product");
 
     logger.info("AddToWishlist: product added successfully");
-    res.status(200).json({ message: "Added to wishlist", wishlist });
+    res.status(200).json({ message: "Added to wishlist", 
+       wishlist: wishlist.products.map(p => ({
+       product: p.product,
+       liked: p.liked  }))
+  });
   } catch (err) {
     logger.error(`AddToWishlist Error: ${err.message}`);
     res.status(500).json({ message: err.message });
@@ -52,7 +57,13 @@ exports.getWishlist = async (req, res) => {
     }
 
     logger.info("GetWishlist: wishlist fetched successfully");
-    res.status(200).json({ wishlist });
+    res.status(200).json({ 
+    message: "Wishlist fetched successfully",
+    wishlist: wishlist.products.map(p => ({
+    product: p.product,   // ⭐ populated product details
+    liked: p.liked
+    }))
+  });
   } catch (err) {
     logger.error(`GetWishlist Error: ${err.message}`);
     res.status(500).json({ message: err.message });

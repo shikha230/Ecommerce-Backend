@@ -114,13 +114,35 @@ exports.getProductById = async (req, res) => {
       logger.info("----getproductsbyId-----product not found")
       return res.status(404).json({ error: "Product not found" });
     }
-    logger.info("----getproductsbyId-----Product fetched successfully")
-    res.status(200).json({ 
-    message: "Product fetched successfully", 
-    product,
-    installationRequired: product.installationRequired 
-  });
-  } catch (error) {
+
+    // 🔹 Check wishlist for this user
+     let isLiked = false;
+   if (userId) {
+    const wishlist = await Wishlist.findOne({ user: userId });
+    if (wishlist) {
+      isLiked = wishlist.products.some(p => p.product.toString() === id);
+      
+      if (isLiked) {
+      logger.info(`----getProductById-----Product ${id} is liked by user ${userId}`);
+    } else {
+      logger.info(`----getProductById-----Product ${id} is NOT liked by user ${userId}`);
+    }
+  } else {
+    logger.info(`----getProductById-----No wishlist found for user ${userId}`);
+  }
+} else {
+  logger.warn("----getProductById-----No userId found in request");
+}
+logger.info("----getproductsbyId-----Product fetched successfully")
+res.status(200).json({ 
+message: "Product fetched successfully", 
+product,
+installationRequired: product.installationRequired,
+averageRating: product.averageRating,   // ⭐ 
+numReviews: product.numReviews , 
+isLiked        // ⭐ 
+});
+} catch (error) {
     logger.error("---getproductbyId-----error")
     res.status(500).json({ error: "Server error", details: error.message });
   }
@@ -162,14 +184,22 @@ exports.updateProduct = async (req, res) => {
         return res.status(404).json({ error: "Category not found" });
       }
     }
-    // ✅ installationRequired validation
+    //  isBestSelling validation
+    if (req.body.isBestSelling !== undefined) {
+     if (typeof req.body.isBestSelling !== "boolean") {
+      return res.status(400).json({ error: "isBestSelling must be true or false" });
+    }
+    product.isBestSelling = req.body.isBestSelling;
+    }
+
+    //  installationRequired validation
     if (req.body.installationRequired !== undefined) {
       if (typeof req.body.installationRequired !== "boolean") {
         return res.status(400).json({ error: "installationRequired must be true or false" });
       }
       product.installationRequired = req.body.installationRequired;
     }
-    // ✅ Partial update
+    //  Partial update
     Object.assign(product, req.body);
 
     await product.save();
@@ -180,7 +210,7 @@ exports.updateProduct = async (req, res) => {
   }
 };
    
-// ✅ Soft Delete Product
+//  Soft Delete Product
 // Soft Delete Product (Admin only)
 exports.deleteProduct = async (req, res) => {
   try {
@@ -214,7 +244,7 @@ exports.deleteProduct = async (req, res) => {
 
 
 
-// ✅ Get Products by Category
+//  Get Products by Category
 exports.getProductByCategory = async (req, res) => {
   try {
     const { categoryId } = req.params;
@@ -245,7 +275,7 @@ exports.getProductByCategory = async (req, res) => {
     res.status(500).json({ error: "Server error", details: error.message });
   }
 };
-// ✅ Get Featured Products
+//  Get Featured Products
 exports.getfeaturedProduct = async (req, res) => {
   try {
     const product = await Product.find({ featured: true, is_delete: { $ne: true } })
@@ -264,71 +294,201 @@ exports.getfeaturedProduct = async (req, res) => {
   }
 };
 
-// Update Best Selling Flag (Admin only)
-exports.updateBestSellingFlag = async (req, res) => {
-  try {
-    if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-      logger.warn("-----updateBestSellingFlag----- Access denied: Non-admin tried to update BestSelling flag");
-      return res.status(403).json({ message: "Access denied: Admin only" });
-    }
+// // Update Best Selling Flag (Admin only)
+// exports.updateBestSellingFlag = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin" && req.user.role !== "superadmin") {
+//       logger.warn("-----updateBestSellingFlag----- Access denied: Non-admin tried to update BestSelling flag");
+//       return res.status(403).json({ message: "Access denied: Admin only" });
+//     }
 
-    const { productId, isBestSelling } = req.body;
+//     const { productId, isBestSelling } = req.body;
 
-    const product = await Product.findByIdAndUpdate(
-      productId,
-      { isBestSelling },
-      { new: true }
-);
-    if (!product) {
-      logger.warn(`-----updateBestSellingFlag----- Product not found: ${productId}`);
-      return res.status(404).json({ message: "Product not found" });
-    }
+//     const product = await Product.findByIdAndUpdate(
+//       productId,
+//       { isBestSelling },
+//       { new: true }
+// );
+//     if (!product) {
+//       logger.warn(`-----updateBestSellingFlag----- Product not found: ${productId}`);
+//       return res.status(404).json({ message: "Product not found" });
+//     }
 
-    product.isBestSelling = isBestSelling;
-    await product.save();
+//     product.isBestSelling = isBestSelling;
+//     await product.save();
 
-    logger.info(`-----updateBestSellingFlag----- Product '${product.name}' updated: isBestSelling = ${isBestSelling}`);
+//     logger.info(`-----updateBestSellingFlag----- Product '${product.name}' updated: isBestSelling = ${isBestSelling}`);
 
-    res.status(200).json({
-      message: `Product ${isBestSelling ? "marked" : "unmarked"} as Best Selling successfully`,
-      product
-    });
-  } catch (error) {
-    logger.error("-----updateBestSellingFlag----- Server error: " + error.message);
-    res.status(500).json({ error: "Server error", details: error.message });
-  }
-};
+//     res.status(200).json({
+//       message: `Product ${isBestSelling ? "marked" : "unmarked"} as Best Selling successfully`,
+//       product
+//     });
+//   } catch (error) {
+//     logger.error("-----updateBestSellingFlag----- Server error: " + error.message);
+//     res.status(500).json({ error: "Server error", details: error.message });
+//   }
+// };
 
-//  ✅ Get Best Selling Products
-exports.getbestSellingProduct = async (req, res) => {
-  try {
-    let { limit } = req.query;
-    // limit = parseInt(limit) || 5; // default top 10
-      limit = Number(limit) > 0 ? Number(limit) : 10; // default top 5
+  // ✅ Get Best Selling Products
+ exports.getbestSellingProduct = async (req, res) => {
+   try {
+     let { limit } = req.query;
+     // limit = parseInt(limit) || 5; // default top 10
+      limit = Number(limit) > 0 ? Number(limit) : 1; // default top 5
     console.log("Limit value:", limit);
      
-   const products = await Product.find({ isBestSelling: true })
+    const products = await Product.find({ isBestSelling: true })
    .sort({ isBestSelling: -1, sold: -1 })  // first admin flag, then sold count
    .limit(limit)
    .populate("category");
 
-   
-    if (!product || product.length === 0) {
-      logger.info("----getBestSellingProducts-----No best selling products found");
-      return res.status(404).json({ message: "No best selling products found" });
-    }
+   if (!products || products.length === 0) {
+   logger.info("----getBestSellingProducts-----No best selling products found");
+  return res.status(404).json({ message: "No best selling products found" });
+  }
 
-    logger.info("----getBestSellingProducts-----Best selling products fetched successfully");
-    res.status(200).json({product 
-        
-     });
-    
+   logger.info("----getBestSellingProducts-----Best selling products fetched successfully");
+  res.status(200).json({ products });
 
   } catch (error) {
-    logger.error("----getBestSellingProducts-----error");
+   logger.error("----getBestSellingProducts-----error");
     res.status(500).json({ error: "Server error", details: error.message });
   }
-};     
+};   
+
+// controllers/productController.js
+// exports.getbestSellingProduct = async (req, res) => {
+//   try {
+//     let { limit } = req.query;
+//     limit = Number(limit) > 0 ? Number(limit) : 5;
+
+//     const result = await Order.aggregate([
+//       // 1. Sirf wahi orders lo jo successful hain
+//       { $match: { paymentStatus: "Successful" } },
+
+//       // 2. Products array ko individual rows mein tod do
+//       { $unwind: "$products" },
+
+//       // 3. Product ID ke basis par sale count karo
+//       {
+//         $group: {
+//           _id: "$products.product",
+//           totalSold: { $sum: "$products.quantity" },
+//           orderCount: { $sum: 1 }
+//         }
+//       },
+
+//       // 4. Product collection ke saath join karo details ke liye
+//       {
+//         $lookup: {
+//           from: "products", // Check karein aapka collection name 'products' hi hai na
+//           localField: "_id",
+//           foreignField: "_id",
+//           as: "productDetails"
+//         }
+//       },
+
+//       // 5. Array ko object mein badlo
+//       { $unwind: "$productDetails" },
+
+//       // 6. ❗ YAHAN HAI MAIN FIX: Sirf isBestSelling true waale filter karein
+//       { 
+//         $match: { 
+//           "productDetails.isBestSelling": true, 
+//           "productDetails.is_delete": false 
+//         } 
+//       },
+
+//       // 7. Highest sales waale upar rakho
+//       { $sort: { totalSold: -1 } },
+
+//       // 8. Limit apply karein
+//       { $limit: limit },
+
+//       // 9. Output ko saaf-suthra format karein
+//       {
+//         $project: {
+//           _id: "$productDetails._id",
+//           name: "$productDetails.name",
+//           price: "$productDetails.price",
+//           images: "$productDetails.images",
+//           isBestSelling: "$productDetails.isBestSelling",
+//           totalSold: 1,
+//           quantity: "$productDetails.quantity",
+//           category: "$productDetails.category",
+//           tags: "$productDetails.tags"
+//         }
+//       }
+//     ]);
+
+//     // Agar koi product isBestSelling: true nahi mila
+//     if (result.length === 0) {
+//       return res.status(200).json({ 
+//         success: true, 
+//         message: "No best selling products found with active flag", 
+//         products: [] 
+//       });
+//     }
+
+//     res.status(200).json({ success: true, products: result });
+
+//   } catch (error) {
+//     res.status(500).json({ error: "Server error", details: error.message });
+//   }
+// };
+   
+       
+    
+
+// controllers/productController.js
+
+// exports.getbestSellingProduct = async (req, res) => {
+//   try {
+//     let { limit } = req.query;
+//     limit = Number(limit) > 0 ? Number(limit) : 5;
+
+//     // Aggregate orders with successful payment
+//     const bestSelling = await Order.aggregate([
+//       { $match: { paymentStatus: "Successful" } }, // only paid orders
+//       { $unwind: "$products" }, // break array into individual docs
+//       {
+//         $group: {
+//           _id: "$products.product", // group by product id
+//           totalSold: { $sum: "$products.quantity" }, // sum quantities
+//           orderCount: { $sum: 1 } // count number of orders
+//         }
+//       },
+//       { $sort: { totalSold: -1 } }, // sort by sold quantity
+//       { $limit: limit }
+//     ]);
+
+//     // Populate product details with isBestSelling filter
+//     const products = await Product.find({ 
+//       _id: { $in: bestSelling.map(p => p._id) },
+//       isBestSelling: true   // ✅ सिर्फ वही products जिनका flag true है
+//     }).populate("category");
+
+//     // Merge product info with sold counts
+//     const result = products.map(prod => {
+//       const stats = bestSelling.find(p => String(p._id) === String(prod._id));
+//       return {
+//         ...prod.toObject(),
+//         totalSold: stats?.totalSold || 0,
+//         orderCount: stats?.orderCount || 0
+//       };
+//     });
+
+//     if (!result || result.length === 0) {
+//       return res.status(404).json({ message: "No best selling products found" });
+//     }
+
+//     res.status(200).json({ products: result });
+
+//   } catch (error) {
+//     res.status(500).json({ error: "Server error", details: error.message });
+//   }
+// };
+
 //  Filter Products by Price (High to Low / Low to High)
 exports.getfilterByPrice = async (req, res) => {
   try {

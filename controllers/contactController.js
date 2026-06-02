@@ -10,6 +10,7 @@ exports.createContact = async (req, res) => {
 
     if (!firstname || !email  || !yourMessage || !inquiryType) {
       logger.warn("-----createContact----- Missing required fields");
+      console.warn("Missing required fields");
       return res.status(400).json({ 
         message: "First name, email, inquiryType and yourMessage are required" 
       });
@@ -39,6 +40,7 @@ exports.createContact = async (req, res) => {
     );
 
     logger.info(`-----createContact----- ContactID: ${contact.id} created & mail sent`);
+    console.log(`Mail sent to admin: ${process.env.EMAIL_USER}`); //  Console 
     res.status(201).json({
       success: true,
       message: "Message sent successfully",
@@ -46,6 +48,7 @@ exports.createContact = async (req, res) => {
     });
   } catch (error) {
     logger.error("-----createContact----- Error", error);
+    console.error("Error while creating contact or sending mail:", error); // Console 
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
