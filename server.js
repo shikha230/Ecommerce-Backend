@@ -19,24 +19,56 @@ const returnRoutes = require("./Routes/returnRoutes");
 
 
 const path = require("path");
+const connect = require("./config/connect");
 
 const cors = require("cors");
-  const allowedOrigins = [
-//   "http://187.77.99.134",
-//   "http://localhost:3000",
-//   "http://localhost:5173",
-//   "http://localhost:5174",
-//   "http://localhost:5175",
-  "http://localhost:5176",
-//   "http://localhost:5177",
-//   "http://localhost:5178",
-  ];
-
-const connect = require("./config/connect");
-connect();
-
 const app = express();
- app.use(cors());
+  // const allowedOrigins = [
+  // "http://187.77.99.134",
+  // "http://localhost:3000",
+  // "http://localhost:5173",
+  // "http://localhost:5174",
+  // "http://localhost:5175",
+  // "http://localhost:5176",
+  // "http://localhost:5177",
+  // "http://localhost:5178",
+  // ];
+
+connect();
+const allowedOrigins = [
+  "http://localhost:5176",
+  "http://127.0.0.1:5176",
+  "http://localhost:5173",
+  "http://localhost:3000"
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in allowed list OR is an ngrok domain
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes("ngrok-free.app")) {
+      callback(null, true);
+    } else {
+      console.log("Blocked by CORS. Origin was:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type", 
+    "Authorization", 
+    "X-Requested-With", 
+    "Accept", 
+    "ngrok-skip-browser-warning" // CRITICAL: Add this header
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
+
+
+
 // app.use(
 //   cors({
 //     origin: function (origin, callback) {

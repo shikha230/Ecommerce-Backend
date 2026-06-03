@@ -183,18 +183,30 @@ if (installationProductCount === 1) {
     await order.save();
     // 🔹 Update sold & stock for each product
     
-    for (const item of cart.products) {
-      await Product.findByIdAndUpdate( 
-        item.product._id,
+  //   for (const item of cart.products) {
+  //     await Product.findByIdAndUpdate( 
+  //       item.product._id,
+  //     {
+  //     $inc: { sold: item.quantity, quantity: -item.quantity },
+  //     $set: { inStock: (product.quantity - item.quantity) <= 0 }
+  //   }, { new: true }
+  // );
+  for (const item of cart.products) {
+  const prod = await Product.findById(item.product._id);
+
+  if (prod) {
+    const newQuantity = prod.quantity - item.quantity;
+    await Product.findByIdAndUpdate(
+      item.product._id,
       {
-      $inc: { sold: item.quantity, quantity: -item.quantity },
-      $set: { inStock: (product.quantity - item.quantity) <= 0 }
-    }, { new: true }
-  );
-
-}     
-
-    res.json({ message: "Order created successfully", order });
+        $inc: { sold: item.quantity, quantity: -item.quantity },
+        $set: { inStock: newQuantity > 0 }
+      },
+      { new: true }
+    );
+  }
+}
+res.json({ message: "Order created successfully", order });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

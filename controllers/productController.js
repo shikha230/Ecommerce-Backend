@@ -47,7 +47,7 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// ✅ Get All Products (with Pagination(admin ))
+//  Get All Products (with Pagination(admin ))
 exports.getProduct = async (req, res) => {
   try {
     let { page, limit } = req.query;
@@ -64,9 +64,10 @@ exports.getProduct = async (req, res) => {
     const products = await Product.find()
       .populate("category")
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .sort({ createdAt: -1 }) ;  //  पहले sort करें (latest product top पर)
     
-    res.status(200).json({
+      res.status(200).json({
       totalProduct,
       currentPage: page,
       totalPages: Math.ceil(totalProduct / limit),

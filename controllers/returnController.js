@@ -1,7 +1,7 @@
 const Return = require("../models/return");
 const logger = require("../helper/logger");
 const Order = require("../models/order");   // path अपने project structure के हिसाब से बदलें
-
+const Product = require("../models/product");
 const sendMail = require("../helper/emailServices"); // जहां आपने sendMail export किया है
 
 exports.createReturnRequest = async (req, res) => {

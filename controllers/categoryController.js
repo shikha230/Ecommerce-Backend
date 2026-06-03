@@ -42,7 +42,10 @@ exports.createCategory = async (req, res) => {
 // Get All Categories (User + Admin)
 exports.getCategories = async (req, res) => {
   try {
-    const category = await Category.find({ is_delete: false });
+    const category = await Category.find({ is_delete: false })
+    .sort({ createdAt: -1 });   //  latest category top 
+
+ 
     logger.info("-----getCategories----- Fetched all categories");
     res.json(category);
   } catch (err) {
