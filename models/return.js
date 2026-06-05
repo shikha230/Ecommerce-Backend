@@ -36,7 +36,8 @@ const returnSchema = new mongoose.Schema(
       type: String,
       enum: [
         "Return Requested",
-         "Return Approved",
+        //  " Approved",
+        "Approved",
           "Rejected",
         // "Product Picked Up",
         // "Replacement Shipped",

@@ -2,11 +2,66 @@ const Return = require("../models/return");
 const logger = require("../helper/logger");
 const Order = require("../models/order");   // path अपने project structure के हिसाब से बदलें
 const Product = require("../models/product");
-const sendMail = require("../helper/emailServices"); // जहां आपने sendMail export किया है
+const emailService = require("../helper/emailServices"); // जहां आपने sendMail export किया है
+
+// Get Return Order Controller
+exports.getReturnOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params; // सिर्फ orderId लो
+
+    // Step 1: Validate Order
+    const order = await Order.findById(orderId)
+      .populate("products.product", "name price images discount")
+      .populate("userId", "name email"); // user details भी लाओ
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    // Step 2: Return पूरा Order + Products details
+    res.status(200).json({
+      success: true,
+      message: "Order details fetched successfully",
+      data: {
+        orderId: order._id,
+        userId: order.userId._id,
+        userName: order.userId.fullname,
+        userEmail: order.userId.email,
+        products: order.products.map(p => ({
+          productId: p.product._id,
+          productName: p.product.name,
+          productImages: p.product.images,
+          productPrice: p.product.price,
+          quantity: p.quantity
+        })),
+        orderStatus: order.orderStatus,
+        paymentStatus: order.paymentStatus,
+        shippingAddress: order.shippingAddress,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        shipping: order.shipping,
+        tax: order.tax,
+        installationCharges: order.installationCharges,
+        total: order.total,
+        createdAt: order.createdAt
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching return order:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message
+    });
+  }
+};
 
 exports.createReturnRequest = async (req, res) => {
   try {
-    const { orderId, productId, reason } = req.body;
+    const { orderId,productId, reason } = req.body;
     console.log("Body received:", req.body);
 
     logger.info(`Return request initiated by user: ${req.user.id}, orderId: ${orderId}, productId: ${productId}`);
@@ -74,7 +129,7 @@ exports.getAllReturns = async (req, res) => {
     logger.info("-----getAllReturns----- Admin fetching all return requests");
 
     const returns = await Return.find()
-      .populate("user", "name email")
+      .populate("user", "fullname email")
       .populate("order", "orderStatus total")
       .populate("product", "name price");
 
@@ -94,7 +149,7 @@ exports.getAllReturns = async (req, res) => {
 exports.updateReturnStatus = async (req, res) => {
   try {
     const { status, adminMessage } = req.body;
-    const returnRequest = await Return.findById(req.params.id).populate("user", "email name");
+    const returnRequest = await Return.findById(req.params.returnId).populate("user", "email fullname");
 
     if (!returnRequest) {
       return res.status(404).json({ success: false, message: "Return request not found" });
@@ -106,15 +161,20 @@ exports.updateReturnStatus = async (req, res) => {
 
     // ✅ Mail भेजना
     let subject, text;
-    if (status === "Return Approved") {
+    if (status === "Approved") {
       subject = "Your Return Request Approved";
-      text = `Hello ${returnRequest.user.name},\n\nYour return request has been approved. A replacement product will be delivered within 7-8 days.\n\nThank you!`;
-    } else {
-      subject = "Your Return Request Cancelled";
-      text = `Hello ${returnRequest.user.name},\n\nYour return request has been cancelled. Please contact our support team for further assistance.\n\nThank you!`;
+      text = `Hello ${returnRequest.user.fullname},\n\nYour return request has been approved.Our support team will contact you shortly to confirm your order details.After confirmation, A replacement product will be delivered within 7-8 days.\n\nThank you for your patience and trust in us!`;
+    } else if (status === "Rejected") {
+      subject = "Your Return Request Rejected";
+      text = `Hello ${returnRequest.user.fullname},\n\nYour return request has been cancelled. Please contact our support team for further assistance and discuss possible next steps..\n\nThank you!`;
     }
 
-    await sendMail(returnRequest.user.email, subject, null, text);
+    await emailService.sendMail(
+      returnRequest.user.email, //recipient
+      subject,         //subject
+      null,            //optional
+      text             //plain text body
+    );           //
 
     res.json({ success: true, message: `Return request ${status}`, data: returnRequest });
   } catch (err) {
