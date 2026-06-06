@@ -117,10 +117,12 @@ exports.getProductById = async (req, res) => {
     }
 
     // 🔹 Check wishlist for this user
-     let isLiked = false;
+    const userId = req.user?.id; 
+    
+    let isLiked = false;
    if (userId) {
     const wishlist = await Wishlist.findOne({ user: userId });
-    if (wishlist) {
+      if (wishlist) {
       isLiked = wishlist.products.some(p => p.product.toString() === id);
       
       if (isLiked) {
