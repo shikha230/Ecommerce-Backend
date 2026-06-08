@@ -3,6 +3,7 @@ const Product = require("../models/product");
 const Review = require("../models/review");
 const logger = require("../helper/logger");
 const User = require("../models/User");
+const Wishlist = require("../models/wishlist");
 exports.addReview = async (req, res) => {
   try {
     const { rating, comment, dummyFirstName, dummyLastName, asVerified } =

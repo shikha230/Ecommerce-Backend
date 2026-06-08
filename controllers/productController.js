@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 const Product = require("../models/product");
 const Category = require("../models/category");
 const Search = require("../models/search");
+const Review = require("../models/review");
+const User = require("../models/User");
+const Wishlist = require("../models/wishlist");
+
+
 const logger = require("../helper/logger");
 
 

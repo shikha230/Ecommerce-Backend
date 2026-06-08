@@ -8,7 +8,7 @@ const { uploadUserProfile } = require("../middleware/uploads");
 
 
 
-const { signup, login, forgetPassword, verifyOtp, resetPassword,userProfile,updateProfile,logoutSession,removeUserProfileImage } = require("../controllers/authController");
+const { signup, login, forgetPassword, verifyOtp, resetPassword,userProfile,changePassword,updateProfile,logoutSession,removeUserProfileImage } = require("../controllers/authController");
 
 router.post("/signup", signup);
 router.post("/login", login);
@@ -16,6 +16,7 @@ router.post("/forget-password", forgetPassword);
 router.post("/verify-otp", verifyOtp);
 router.post("/reset-password",resetPassword);
 router.get("/profile", tokenMiddleware,userProfile  );
+router.put("/change-password",tokenMiddleware,changePassword);
 router.put("/updateprofile", tokenMiddleware,updateProfile  );
 router.put("/logout",tokenMiddleware,logoutSession );
 
