@@ -1,0 +1,99 @@
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+const Admin = require("../models/admin");
+const logger = require("../helper/logger");
+
+exports.getCurrentUser = async (req, res) => {
+  try {
+    logger.info("-----GetCurrentUser API Called-----");
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      logger.error("Token not provided");
+
+      return res.status(401).json({
+        success: false,
+        message: "Token not provided",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    let decoded;
+
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      logger.error("Invalid token");
+
+      return res.status(401).json({
+        success: false,
+        message: "Invalid token",
+      });
+    }
+
+    logger.info(`Decoded User ID: ${decoded.id}`);
+    console.log("Decoded Token:", decoded);
+
+    // First check Admin collection
+    const admin = await Admin.findById(decoded.id).select("-password");
+
+    if (admin) {
+      console.log("===== ADMIN LOGIN DETECTED =====");
+      console.log(admin);
+      logger.info(`Admin Found: ${admin.email}`);
+
+      return res.status(200).json({
+        success: true,
+        role: "admin",
+        token,
+        data: {
+          _id: admin._id,
+          firstname: admin.firstname,
+          lastname: admin.lastname,
+          email: admin.email,
+          role: admin.role,
+          profileImage: admin.profileImage,
+        },
+      });
+    }
+
+    // Then check User collection
+    const user = await User.findById(decoded.id).select("-password");
+
+    if (user) {
+      logger.info(`User Found: ${user.email}`);
+
+      return res.status(200).json({
+        success: true,
+        role: "user",
+        token,
+        data: {
+          _id: user._id,
+          fullname: user.fullname,
+          lastname: user.lastname,
+          email: user.email,
+          role: user.role,
+          profileImage: user.profileImage,
+        },
+      });
+    }
+
+    logger.error("User/Admin not found");
+
+    return res.status(404).json({
+      success: false,
+      message: "User not found",
+    });
+
+  } catch (error) {
+    logger.error(`GetCurrentUser Error: ${error.message}`);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};

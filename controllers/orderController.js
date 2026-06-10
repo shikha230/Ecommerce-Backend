@@ -1,6 +1,6 @@
-const Cart = require("../models/cart"); 
+const Cart = require("../models/cart");
 const Order = require("../models/order");
-const logger= require("../helper/logger");
+const logger = require("../helper/logger");
 // const coupon = require("../models/coupon");
 const Product = require("../models/product");
 
@@ -10,20 +10,24 @@ exports.getOrderSummary = async (req, res) => {
     const { source, orderId } = req.query;
 
     let items = [];
-    let order = null;  //// ✅ declare globally
+    let order = null; //// ✅ declare globally
 
     if (source === "buynow" && orderId) {
-      order = await Order.findById(orderId)
-      .populate("products.product", "name price discount colour images installationRequired");
-        console.log("OrderId received:", orderId);
+      order = await Order.findById(orderId).populate(
+        "products.product",
+        "name price discount colour images installationRequired",
+      );
+      console.log("OrderId received:", orderId);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
       }
 
       items = order.products;
     } else {
-      const cart = await Cart.findOne({ user: userId })
-        .populate("products.product","name price discount colour images installationRequired");
+      const cart = await Cart.findOne({ user: userId }).populate(
+        "products.product",
+        "name price discount colour images installationRequired",
+      );
 
       if (!cart || cart.products.length === 0) {
         return res.status(200).json({ message: "Cart is empty", summary: {} });
@@ -41,7 +45,8 @@ exports.getOrderSummary = async (req, res) => {
     let discount = 0;
     items.forEach((item) => {
       if (item.product.discount) {
-        discount += (item.product.price * item.quantity * item.product.discount) / 100;
+        discount +=
+          (item.product.price * item.quantity * item.product.discount) / 100;
       }
     });
 
@@ -52,33 +57,40 @@ exports.getOrderSummary = async (req, res) => {
     const tax = Math.round(subtotal * 0.1);
 
     let installationCharges = 0;
+    const installationProductCount = items.reduce((count, p) => {
+      const adminAllowed = p.product?.installationRequired === true;
+      const userSelected = p.installationRequired === true;
 
-// Count products जिनमें admin ने installationRequired true किया है
-// और user ने भी Yes चुना है
-const installationProductCount = items.reduce((count, p) => {
-  if (p.product.installationRequired && p.installationRequired === true) {
-    count += p.quantity;  // ✅ quantity भी count करें
-  }
-  return count;
-}, 0);
+      if (adminAllowed && userSelected) {
+        count += p.quantity;
+      }
 
-if (installationProductCount === 1) {
-  installationCharges = 500;
-  logger.info("Installation charges applied: 500 (single installation-required product)");
-} else if (installationProductCount === 2) {
-  installationCharges = 250;
-  logger.info("Installation charges applied: 250 (two installation-required products)");
-} else if (installationProductCount >= 3) {
-  installationCharges = 0;
-  logger.info("Installation free (3 or more installation-required products)");
-} else {
-  installationCharges = 0; // user ने No चुना या admin ने false किया
-  logger.info("No installation required products, charges = 0");
-}
+      return count;
+    }, 0);
 
-  
+    console.log("Installation Product Count:", installationProductCount);
 
-const total = subtotal - discount + shipping + tax + installationCharges;
+    if (installationProductCount === 1) {
+      installationCharges = 500;
+      logger.info(
+        "Installation charges applied: 500 (single installation-required product)",
+      );
+    } else if (installationProductCount === 2) {
+      installationCharges = 250;
+      logger.info(
+        "Installation charges applied: 250 (two installation-required products)",
+      );
+    } else if (installationProductCount >= 3) {
+      installationCharges = 0;
+      logger.info(
+        "Installation free (3 or more installation-required products)",
+      );
+    } else {
+      installationCharges = 0; // user ने No चुना या admin ने false किया
+      logger.info("No installation required products, charges = 0");
+    }
+
+    const total = subtotal - discount + shipping + tax + installationCharges;
 
     res.status(200).json({
       message: "Order summary generated",
@@ -91,7 +103,7 @@ const total = subtotal - discount + shipping + tax + installationCharges;
         tax,
         installationCharges,
         total,
-        items
+        items,
       },
     });
   } catch (error) {
@@ -103,15 +115,17 @@ exports.createOrder = async (req, res) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         success: false,
-        message: "Please login first to create an order"
+        message: "Please login first to create an order",
       });
     }
 
     const userId = req.user.id;
     const { shippingAddress } = req.body;
 
-    const cart = await Cart.findOne({ user: userId })
-      .populate("products.product","name price images discount quantity inStock");
+    const cart = await Cart.findOne({ user: userId }).populate(
+      "products.product",
+      "name price images discount quantity inStock installationRequired",
+    );
 
     if (!cart || cart.products.length === 0) {
       return res.status(400).json({ message: "Cart is empty" });
@@ -136,7 +150,8 @@ exports.createOrder = async (req, res) => {
     let discount = 0;
     cart.products.forEach((item) => {
       if (item.product.discount) {
-        discount += (item.product.price * item.quantity * item.product.discount) / 100;
+        discount +=
+          (item.product.price * item.quantity * item.product.discount) / 100;
       }
     });
 
@@ -144,27 +159,27 @@ exports.createOrder = async (req, res) => {
     const tax = Math.round(subtotal * 0.1);
     let installationCharges = 0;
 
-// Count products जिनमें admin ने installationRequired = true किया है
-// और user ने भी Yes चुना है (p.installationRequired === true)
-const installationProductCount = cart.products.reduce((count, p) => {
-  if (p.product.installationRequired && p.installationRequired === true) {
-    count += p.quantity;  // ✅ quantity भी count करें
-  }
-  return count;
-}, 0);
+    const installationProductCount = cart.products.reduce((count, p) => {
+      const adminAllowed = p.product?.installationRequired === true;
+      const userSelected = p.installationRequired === true;
 
-// Charges calculation
-if (installationProductCount === 1) {
-  installationCharges = 500;
-} else if (installationProductCount === 2) {
-  installationCharges = 250;
-} else if (installationProductCount >= 3) {
-  installationCharges = 0; // free
-} else {
-  installationCharges = 0; // ✅ user ने No चुना या admin ने false किया
-}
+      if (adminAllowed && userSelected) {
+        count += p.quantity;
+      }
+      return count;
+    }, 0);
 
-   
+    // Charges calculation
+    if (installationProductCount === 1) {
+      installationCharges = 500;
+    } else if (installationProductCount === 2) {
+      installationCharges = 250;
+    } else if (installationProductCount >= 3) {
+      installationCharges = 0; // free
+    } else {
+      installationCharges = 0; // ✅ user ने No चुना या admin ने false किया
+    }
+
     const total = subtotal - discount + shipping + tax + installationCharges;
 
     const order = new Order({
@@ -181,32 +196,7 @@ if (installationProductCount === 1) {
     });
 
     await order.save();
-    // 🔹 Update sold & stock for each product
-    
-  //   for (const item of cart.products) {
-  //     await Product.findByIdAndUpdate( 
-  //       item.product._id,
-  //     {
-  //     $inc: { sold: item.quantity, quantity: -item.quantity },
-  //     $set: { inStock: (product.quantity - item.quantity) <= 0 }
-  //   }, { new: true }
-  // );
-  for (const item of cart.products) {
-  const prod = await Product.findById(item.product._id);
-
-  if (prod) {
-    const newQuantity = prod.quantity - item.quantity;
-    await Product.findByIdAndUpdate(
-      item.product._id,
-      {
-        $inc: { sold: item.quantity, quantity: -item.quantity },
-        $set: { inStock: newQuantity > 0 }
-      },
-      { new: true }
-    );
-  }
-}
-res.json({ message: "Order created successfully", order });
+    res.json({ message: "Order created successfully", order });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -216,7 +206,7 @@ exports.buyNow = async (req, res) => {
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         success: false,
-        message: "Please login first to buy product"
+        message: "Please login first to buy product",
       });
     }
 
@@ -256,24 +246,27 @@ exports.buyNow = async (req, res) => {
     // Tax
     const tax = Math.round(subtotal * 0.1);
 
-    // Installation charges
-    if (product.installationRequired) {
-      if (installationRequired === true) {
-        if (quantity === 1) installationCharges = 500;
-        else if (quantity === 2) installationCharges = 250;
-        else if (quantity >= 3) installationCharges = 0;
-      } else {
-    installationCharges = 0;
-  }
-} else {
-  installationCharges = 0; // admin ने ही false किया है
-}
+    let installationCharges = 0;
 
+    const adminAllowed = product.installationRequired === true;
+    const userSelected =
+      installationRequired === true || installationRequired === "true";
 
-    // ✅ Final total
+    if (adminAllowed && userSelected) {
+      if (quantity === 1) {
+        installationCharges = 500;
+      } else if (quantity === 2) {
+        installationCharges = 250;
+      } else if (quantity >= 3) {
+        installationCharges = 0;
+      }
+    } else {
+      installationCharges = 0;
+    }
+    //  Final total
     const total = subtotal - discount + shipping + tax + installationCharges;
 
-    // ✅ Order create (shippingAddress abhi empty rakho)
+    //  Order create (shippingAddress abhi empty rakho)
     const order = new Order({
       userId,
       products: [item],
@@ -287,23 +280,15 @@ exports.buyNow = async (req, res) => {
       shippingAddress: {}, // ✅ empty, checkout page par fill hoga
       paymentStatus: "Pending",
       orderStatus: "Pending",
-      source: "buynow"   // ✅ Add this field
+      source: "buynow", // ✅ Add this field
     });
 
     await order.save();
-    
-    await Product.findByIdAndUpdate(
-   productId,
-   {
-    $inc: { sold: quantity, quantity: -quantity },
-    $set: { inStock: (product.quantity - quantity) <= 0 }
-   },
-   { new: true }
-  );
-    res.json({ 
+
+    res.json({
       success: true,
-      message: "Order created successfully via Buy Now", 
-      orderId: order._id 
+      message: "Order created successfully via Buy Now",
+      orderId: order._id,
     });
   } catch (err) {
     console.error("Order summary error:", err);
@@ -312,8 +297,8 @@ exports.buyNow = async (req, res) => {
 };
 exports.updateOrderAddress = async (req, res) => {
   try {
-    const { orderId } = req.params;   // URL से orderId लेना
-    const { shippingAddress } = req.body;  // Body से पूरा shippingAddress object लेना
+    const { orderId } = req.params; // URL से orderId लेना
+    const { shippingAddress } = req.body; // Body से पूरा shippingAddress object लेना
 
     // Order fetch करो
     const order = await Order.findById(orderId);
@@ -323,8 +308,8 @@ exports.updateOrderAddress = async (req, res) => {
 
     // // अगर पहले से address है और आप overwrite नहीं करना चाहते तो check डाल सकते हैं
     // if (order.shippingAddress && Object.keys(order.shippingAddress).length > 0) {
-    //   return res.status(400).json({ 
-    //     message: "Shipping address already exists for this order" 
+    //   return res.status(400).json({
+    //     message: "Shipping address already exists for this order"
     //   });
     // }
 
@@ -343,7 +328,7 @@ exports.updateOrderAddress = async (req, res) => {
         state: shippingAddress.delivery?.state,
         pincode: shippingAddress.delivery?.pincode,
         phone: shippingAddress.delivery?.phone,
-      }
+      },
     };
 
     await order.save();
@@ -353,7 +338,6 @@ exports.updateOrderAddress = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 // Get Orders by User
 exports.getOrders = async (req, res) => {
@@ -382,9 +366,9 @@ exports.getAllOrders = async (req, res) => {
     if (req.user.role !== "admin") {
       return res.status(403).json({ message: "Access denied. Admins only." });
     }
-    const { date } = req.query;   // frontend से query param आएगा
+    const { date } = req.query; // frontend से query param आएगा
     let filter = {};
-    
+
     if (date) {
       const start = new Date(date);
       start.setHours(0, 0, 0, 0); // start of day
@@ -404,7 +388,7 @@ exports.getAllOrders = async (req, res) => {
 
     res.status(200).json({
       message: "All orders fetched successfully",
-      orders
+      orders,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -418,21 +402,21 @@ exports.deleteOrder = async (req, res) => {
 
     // ✅ only admin do
     if (req.user.role !== "admin") {
-      logger.info("----access denied. admin only")
+      logger.info("----access denied. admin only");
       return res.status(403).json({ message: "Access denied. Admins only." });
     }
 
     const order = await Order.findById(orderId);
     if (!order) {
-      logger.info("-----order----Not found")
+      logger.info("-----order----Not found");
       return res.status(404).json({ message: "Order not found" });
     }
 
     await Order.findByIdAndDelete(orderId);
-    logger.info("---deleted----order deleted successfully")
+    logger.info("---deleted----order deleted successfully");
     res.status(200).json({ message: "Order deleted successfully" });
   } catch (err) {
-    logger.error("----error-------")
+    logger.error("----error-------");
     res.status(500).json({ message: err.message });
   }
 };
@@ -457,16 +441,18 @@ exports.updateOrderStatus = async (req, res) => {
     // Push new status into timeline
     order.statusTimeline.push({
       status: orderStatus,
-      date: new Date()
+      date: new Date(),
     });
 
     await order.save();
 
-    logger.info(`Order status updated: orderId=${orderId}, Status=${orderStatus}`);
+    logger.info(
+      `Order status updated: orderId=${orderId}, Status=${orderStatus}`,
+    );
 
-    res.status(200).json({ 
-      message: "Order status updated successfully", 
-      order 
+    res.status(200).json({
+      message: "Order status updated successfully",
+      order,
     });
   } catch (err) {
     logger.error(`Error updating order status: ${err.message}`);
@@ -497,9 +483,9 @@ exports.updateOrderStatus = async (req, res) => {
 //     res.status(500).json({ message: err.message });
 //   }
 // };
- exports.trackOrder = async (req, res) => {
+exports.trackOrder = async (req, res) => {
   try {
-    const userId = req.user.id;   // JWT से userId
+    const userId = req.user.id; // JWT से userId
     const { orderId } = req.params;
 
     const order = await Order.findById(orderId);
@@ -509,16 +495,17 @@ exports.updateOrderStatus = async (req, res) => {
 
     // Ownership check
     if (order.userId.toString() !== userId) {
-      return res.status(403).json({ message: "Not authorized to view this order" });
+      return res
+        .status(403)
+        .json({ message: "Not authorized to view this order" });
     }
 
     res.status(200).json({
       message: "Order tracking details fetched successfully",
-      currentStatus: order.orderStatus,   // ✅ अब latest status मिलेगा
+      currentStatus: order.orderStatus, // ✅ अब latest status मिलेगा
       statusTimeline: order.statusTimeline,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
-  

@@ -20,6 +20,13 @@ const cartSchema = new mongoose.Schema(
           default: 1,
           min: [1, "Quantity must be at least 1"],
         },
+       
+        installationRequired: { 
+        type: Boolean, 
+        default: false 
+        },
+ 
+        
         dimensions: [
           {
             length: { type: Number, required: false },
@@ -35,15 +42,11 @@ const cartSchema = new mongoose.Schema(
         },
       },
     ],
-  installationRequired: { 
-    type: Boolean, 
-    default: false 
-  },
- 
-  installationCharges: {
-    type: Number,
-    default: null
-  },
+
+ installationCharges: {
+        type: Number,
+        default: null
+        },
   isActive: { 
     type: Boolean, 
     default: true 

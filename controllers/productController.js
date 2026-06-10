@@ -6,21 +6,40 @@ const Review = require("../models/review");
 const User = require("../models/User");
 const Wishlist = require("../models/wishlist");
 
-
 const logger = require("../helper/logger");
-
 
 // Create Product
 // Create Product (Admin only)
 exports.createProduct = async (req, res) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-      logger.warn("-----createProduct----- Access denied: User tried to create product");
+      logger.warn(
+        "-----createProduct----- Access denied: User tried to create product",
+      );
       return res.status(403).json({ message: "Access denied: Admin only" });
     }
 
-    const { name, price,discount,images,colour,size,quantity,specifications,description,careInstruction, inStock, featured,sold,category, dimensions,tags,installationRequired,isBestSelling  } = req.body;
-     const product = new Product({
+    const {
+      name,
+      price,
+      discount,
+      images,
+      colour,
+      size,
+      quantity,
+      specifications,
+      description,
+      careInstruction,
+      inStock,
+      featured,
+      sold,
+      category,
+      dimensions,
+      tags,
+      installationRequired,
+      isBestSelling,
+    } = req.body;
+    const product = new Product({
       name,
       price,
       discount,
@@ -38,13 +57,13 @@ exports.createProduct = async (req, res) => {
       dimensions,
       tags,
       installationRequired: installationRequired || false,
-      isBestSelling: isBestSelling || false   // ✅ default false, admin set karega
-
+      isBestSelling: isBestSelling ?? false, // ✅ default false, admin set karega
     });
-    
 
     await product.save();
-    logger.info("-----createProduct----- Product created successfully: " + product.name);
+    logger.info(
+      "-----createProduct----- Product created successfully: " + product.name,
+    );
     res.status(201).json({ message: "Product created successfully", product });
   } catch (err) {
     logger.error("-----createProduct----- Server error: " + err.message);
@@ -60,8 +79,12 @@ exports.getProduct = async (req, res) => {
     limit = parseInt(limit) || 10;
 
     if (page < 1 || limit < 1) {
-      logger.info("----getProducts-----Page and limit must be positive integers")
-      return res.status(400).json({ message: "Page and limit must be positive integers" });
+      logger.info(
+        "----getProducts-----Page and limit must be positive integers",
+      );
+      return res
+        .status(400)
+        .json({ message: "Page and limit must be positive integers" });
     }
 
     const skip = (page - 1) * limit;
@@ -70,16 +93,16 @@ exports.getProduct = async (req, res) => {
       .populate("category")
       .skip(skip)
       .limit(limit)
-      .sort({ createdAt: -1 }) ;  //  पहले sort करें (latest product top पर)
-    
-      res.status(200).json({
+      .sort({ createdAt: -1 }); //  पहले sort करें (latest product top पर)
+
+    res.status(200).json({
       totalProduct,
       currentPage: page,
       totalPages: Math.ceil(totalProduct / limit),
-      products
+      products,
     });
   } catch (err) {
-    logger.error("----getProducts-----error")
+    logger.error("----getProducts-----error");
     res.status(500).json({ message: err.message });
   }
 };
@@ -88,18 +111,20 @@ exports.getProduct = async (req, res) => {
 exports.getProductByName = async (req, res) => {
   try {
     const { name } = req.params;
-    if (!name){ 
-      logger.info("----getproductsbyname-----Product name is required")
+    if (!name) {
+      logger.info("----getproductsbyname-----Product name is required");
       return res.status(400).json({ message: "Product name is required" });
     }
-    const product = await Product.findOne({ name: { $regex: new RegExp(name, "i") } }).populate("category");
+    const product = await Product.findOne({
+      name: { $regex: new RegExp(name, "i") },
+    }).populate("category");
     if (!product) {
-      logger.info("----getproductsbyname-----Product not found")
+      logger.info("----getproductsbyname-----Product not found");
       return res.status(404).json({ message: "Product not found" });
     }
     res.status(200).json({ product });
   } catch (err) {
-    logger.error("----getproductsbyname-----error")
+    logger.error("----getproductsbyname-----error");
     res.status(500).json({ message: err.message });
   }
 };
@@ -110,48 +135,54 @@ exports.getProductById = async (req, res) => {
 
     // Validate product ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      logger.info("----getproductsbyId-----Invalid product Id")
+      logger.info("----getproductsbyId-----Invalid product Id");
       return res.status(400).json({ error: "Invalid product ID" });
     }
 
     // Find product and populate category
     const product = await Product.findById(id).populate("category");
     if (!product) {
-      logger.info("----getproductsbyId-----product not found")
+      logger.info("----getproductsbyId-----product not found");
       return res.status(404).json({ error: "Product not found" });
     }
 
     // 🔹 Check wishlist for this user
-    const userId = req.user?.id; 
-    
+    const userId = req.user?.id;
+
     let isLiked = false;
-   if (userId) {
-    const wishlist = await Wishlist.findOne({ user: userId });
+    if (userId) {
+      const wishlist = await Wishlist.findOne({ user: userId });
       if (wishlist) {
-      isLiked = wishlist.products.some(p => p.product.toString() === id);
-      
-      if (isLiked) {
-      logger.info(`----getProductById-----Product ${id} is liked by user ${userId}`);
+        isLiked = wishlist.products.some((p) => p.product.toString() === id);
+
+        if (isLiked) {
+          logger.info(
+            `----getProductById-----Product ${id} is liked by user ${userId}`,
+          );
+        } else {
+          logger.info(
+            `----getProductById-----Product ${id} is NOT liked by user ${userId}`,
+          );
+        }
+      } else {
+        logger.info(
+          `----getProductById-----No wishlist found for user ${userId}`,
+        );
+      }
     } else {
-      logger.info(`----getProductById-----Product ${id} is NOT liked by user ${userId}`);
+      logger.warn("----getProductById-----No userId found in request");
     }
-  } else {
-    logger.info(`----getProductById-----No wishlist found for user ${userId}`);
-  }
-} else {
-  logger.warn("----getProductById-----No userId found in request");
-}
-logger.info("----getproductsbyId-----Product fetched successfully")
-res.status(200).json({ 
-message: "Product fetched successfully", 
-product,
-installationRequired: product.installationRequired,
-averageRating: product.averageRating,   // ⭐ 
-numReviews: product.numReviews , 
-isLiked        // ⭐ 
-});
-} catch (error) {
-    logger.error("---getproductbyId-----error")
+    logger.info("----getproductsbyId-----Product fetched successfully");
+    res.status(200).json({
+      message: "Product fetched successfully",
+      product,
+      installationRequired: product.installationRequired,
+      averageRating: product.averageRating, // ⭐
+      numReviews: product.numReviews,
+      isLiked, // ⭐
+    });
+  } catch (error) {
+    logger.error("---getproductbyId-----error");
     res.status(500).json({ error: "Server error", details: error.message });
   }
 };
@@ -175,8 +206,13 @@ exports.updateProduct = async (req, res) => {
       return res.status(400).json({ error: "Price must be positive" });
     }
 
-    if (req.body.discount !== undefined && (req.body.discount < 0 || req.body.discount > 100)) {
-      return res.status(400).json({ error: "Discount must be between 0 and 100" });
+    if (
+      req.body.discount !== undefined &&
+      (req.body.discount < 0 || req.body.discount > 100)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Discount must be between 0 and 100" });
     }
 
     if (req.body.quantity !== undefined && req.body.quantity < 0) {
@@ -194,16 +230,20 @@ exports.updateProduct = async (req, res) => {
     }
     //  isBestSelling validation
     if (req.body.isBestSelling !== undefined) {
-     if (typeof req.body.isBestSelling !== "boolean") {
-      return res.status(400).json({ error: "isBestSelling must be true or false" });
-    }
-    product.isBestSelling = req.body.isBestSelling;
+      if (typeof req.body.isBestSelling !== "boolean") {
+        return res
+          .status(400)
+          .json({ error: "isBestSelling must be true or false" });
+      }
+      product.isBestSelling = req.body.isBestSelling;
     }
 
     //  installationRequired validation
     if (req.body.installationRequired !== undefined) {
       if (typeof req.body.installationRequired !== "boolean") {
-        return res.status(400).json({ error: "installationRequired must be true or false" });
+        return res
+          .status(400)
+          .json({ error: "installationRequired must be true or false" });
       }
       product.installationRequired = req.body.installationRequired;
     }
@@ -211,46 +251,52 @@ exports.updateProduct = async (req, res) => {
     Object.assign(product, req.body);
 
     await product.save();
-    
+
     res.json({ message: "Product updated successfully", product });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
-   
+
 //  Soft Delete Product
 // Soft Delete Product (Admin only)
 exports.deleteProduct = async (req, res) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-      logger.warn("-----deleteProduct----- Access denied: User tried to delete product");
+      logger.warn(
+        "-----deleteProduct----- Access denied: User tried to delete product",
+      );
       return res.status(403).json({ message: "Access denied: Admin only" });
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      logger.error("-----deleteProduct----- Invalid product ID: " + req.params.id);
+      logger.error(
+        "-----deleteProduct----- Invalid product ID: " + req.params.id,
+      );
       return res.status(400).json({ error: "Invalid product ID" });
     }
 
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       { is_delete: true },
-      { new: true }
+      { new: true },
     );
-     if (!product) {
-      logger.error("-----deleteProduct----- Product not found: " + req.params.id);
+    if (!product) {
+      logger.error(
+        "-----deleteProduct----- Product not found: " + req.params.id,
+      );
       return res.status(404).json({ message: "Product not found" });
     }
 
-    logger.info("-----deleteProduct----- Product deleted successfully: " + product.name);
+    logger.info(
+      "-----deleteProduct----- Product deleted successfully: " + product.name,
+    );
     res.json({ message: "Product deleted successfully" });
   } catch (err) {
     logger.error("-----deleteProduct----- Server error: " + err.message);
     res.status(500).json({ error: err.message });
   }
 };
-
-
 
 //  Get Products by Category
 exports.getProductByCategory = async (req, res) => {
@@ -269,12 +315,18 @@ exports.getProductByCategory = async (req, res) => {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    const product = await Product.find({ category: categoryId, is_delete: { $ne: true } })
-      .populate("category");
+    const product = await Product.find({
+      category: categoryId,
+      is_delete: { $ne: true },
+    }).populate("category");
 
     if (!product || product.length === 0) {
-      logger.info("----getProductsByCategory-----No products found in this category");
-      return res.status(404).json({ message: "No products found in this category" });
+      logger.info(
+        "----getProductsByCategory-----No products found in this category",
+      );
+      return res
+        .status(404)
+        .json({ message: "No products found in this category" });
     }
 
     res.status(200).json({ product });
@@ -286,7 +338,10 @@ exports.getProductByCategory = async (req, res) => {
 //  Get Featured Products
 exports.getfeaturedProduct = async (req, res) => {
   try {
-    const product = await Product.find({ featured: true, is_delete: { $ne: true } })
+    const product = await Product.find({
+      featured: true,
+      is_delete: { $ne: true },
+    })
       .populate("category")
       .sort({ createdAt: -1 }); // latest featured first
 
@@ -336,35 +391,111 @@ exports.getfeaturedProduct = async (req, res) => {
 //     res.status(500).json({ error: "Server error", details: error.message });
 //   }
 // };
+// Get Best Selling Products
+exports.getbestSellingProduct = async (req, res) => {
+  try {
+    console.log("===== BestSelling API Called =====");
 
-  // ✅ Get Best Selling Products
- exports.getbestSellingProduct = async (req, res) => {
-   try {
-     let { limit } = req.query;
-     // limit = parseInt(limit) || 5; // default top 10
-      limit = Number(limit) > 0 ? Number(limit) : 1; // default top 5
-    console.log("Limit value:", limit);
-     
-    const products = await Product.find({ isBestSelling: true })
-   .sort({ isBestSelling: -1, sold: -1 })  // first admin flag, then sold count
-   .limit(limit)
-   .populate("category");
+    let { limit } = req.query;
 
-   if (!products || products.length === 0) {
-   logger.info("----getBestSellingProducts-----No best selling products found");
-  return res.status(404).json({ message: "No best selling products found" });
-  }
+    limit = Number(limit) > 0 ? Number(limit) : 5;
 
-   logger.info("----getBestSellingProducts-----Best selling products fetched successfully");
-  res.status(200).json({ products });
+    // Minimum sales required to be considered bestseller
+    const BEST_SELLING_THRESHOLD = 5;
 
+    // Admin selected bestseller products
+    const adminBestSelling = await Product.find({
+      isBestSelling: true,
+    }).populate("category");
+    
+    console.log("=================================");
+    console.log("Admin Best Selling Count:", adminBestSelling.length);
+
+    // Auto bestseller products based on sold count
+    const autoBestSelling = await Product.find({
+      sold: { $gte: BEST_SELLING_THRESHOLD },
+    })
+      .sort({ sold: -1 })
+      .populate("category");
+
+       autoBestSelling.forEach((p) => {
+      console.log(
+        `[AUTO] ${p.name} | isBestSelling=${p.isBestSelling} | sold=${p.sold}`
+      );
+    });
+
+    // Merge and remove duplicates
+    const uniqueProductsMap = new Map();
+
+    [...adminBestSelling, ...autoBestSelling].forEach((product) => {
+      uniqueProductsMap.set(product._id.toString(), product);
+    });
+
+    // Convert back to array
+    let products = Array.from(uniqueProductsMap.values());
+    
+    console.log("=================================");
+    console.log("Merged Products Count:", products.length);
+
+    // Sort:
+    // 1. Admin bestseller first
+    // 2. Higher sold count first
+    products.sort((a, b) => {
+      if (a.isBestSelling !== b.isBestSelling) {
+        return b.isBestSelling - a.isBestSelling;
+      }
+
+      return (b.sold || 0) - (a.sold || 0);
+    });
+
+    // Apply limit
+    products = products.slice(0, limit);
+    console.log("Final products:");
+
+    console.log("=================================");
+    console.log("Final Products Count:", products.length);
+
+    products.forEach((p) => {
+      console.log(
+        `[FINAL] ${p.name} | isBestSelling=${p.isBestSelling} | sold=${p.sold}`
+      );
+    });
+
+    console.log("=================================");
+
+    if (!products.length) {
+      logger.info(
+        "----getBestSellingProducts-----No best selling products found",
+      );
+
+      return res.status(404).json({
+        success: false,
+        message: "No best selling products found",
+      });
+    }
+
+    logger.info(
+      "----getBestSellingProducts-----Best selling products fetched successfully",
+    );
+
+    return res.status(200).json({
+      success: true,
+      totalProducts: products.length,
+      products,
+    });
   } catch (error) {
-   logger.error("----getBestSellingProducts-----error");
-    res.status(500).json({ error: "Server error", details: error.message });
-  }
-};   
+    console.error("Best Selling Error:", error);
+    logger.error(`----getBestSellingProducts-----${error.message}`);
 
-// controllers/productController.js
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/// controllers/productController.js
 // exports.getbestSellingProduct = async (req, res) => {
 //   try {
 //     let { limit } = req.query;
@@ -400,11 +531,11 @@ exports.getfeaturedProduct = async (req, res) => {
 //       { $unwind: "$productDetails" },
 
 //       // 6. ❗ YAHAN HAI MAIN FIX: Sirf isBestSelling true waale filter karein
-//       { 
-//         $match: { 
-//           "productDetails.isBestSelling": true, 
-//           "productDetails.is_delete": false 
-//         } 
+//       {
+//         $match: {
+//           "productDetails.isBestSelling": true,
+//           "productDetails.is_delete": false
+//         }
 //       },
 
 //       // 7. Highest sales waale upar rakho
@@ -431,10 +562,10 @@ exports.getfeaturedProduct = async (req, res) => {
 
 //     // Agar koi product isBestSelling: true nahi mila
 //     if (result.length === 0) {
-//       return res.status(200).json({ 
-//         success: true, 
-//         message: "No best selling products found with active flag", 
-//         products: [] 
+//       return res.status(200).json({
+//         success: true,
+//         message: "No best selling products found with active flag",
+//         products: []
 //       });
 //     }
 
@@ -444,9 +575,6 @@ exports.getfeaturedProduct = async (req, res) => {
 //     res.status(500).json({ error: "Server error", details: error.message });
 //   }
 // };
-   
-       
-    
 
 // controllers/productController.js
 
@@ -471,7 +599,7 @@ exports.getfeaturedProduct = async (req, res) => {
 //     ]);
 
 //     // Populate product details with isBestSelling filter
-//     const products = await Product.find({ 
+//     const products = await Product.find({
 //       _id: { $in: bestSelling.map(p => p._id) },
 //       isBestSelling: true   // ✅ सिर्फ वही products जिनका flag true है
 //     }).populate("category");
@@ -500,7 +628,7 @@ exports.getfeaturedProduct = async (req, res) => {
 //  Filter Products by Price (High to Low / Low to High)
 exports.getfilterByPrice = async (req, res) => {
   try {
-    let { sort } = req.query; 
+    let { sort } = req.query;
     sort = sort?.toLowerCase();
     // sort = "asc" (low to high) OR "desc" (high to low)
 
@@ -532,22 +660,26 @@ exports.searchProducts = async (req, res) => {
     const regex = new RegExp(keyword, "i");
 
     // पहले category collection में matching categories खोजें
-    const categories = await Category.find({ name: { $regex: regex } }).select("_id");
+    const categories = await Category.find({ name: { $regex: regex } }).select(
+      "_id",
+    );
 
     const products = await Product.find({
       $or: [
         { name: { $regex: regex } },
-        { category: { $in: categories.map(c => c._id) } }
-      ]
+        { category: { $in: categories.map((c) => c._id) } },
+      ],
     }).populate("category"); // category details भी लाना चाहें तो
 
     await Search.create({
       user: req.user.id,
       keyword,
-      resultsCount: products.length
+      resultsCount: products.length,
     });
 
-    logger.info(`-----searchProducts-----User: ${req.user._id}, Keyword: ${keyword}, Results: ${products.length}`);
+    logger.info(
+      `-----searchProducts-----User: ${req.user._id}, Keyword: ${keyword}, Results: ${products.length}`,
+    );
     res.json(products);
   } catch (error) {
     logger.error("-----searchProducts-----Error", error);
@@ -562,10 +694,15 @@ exports.getrecentSearches = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5);
 
-    logger.info(`-----getRecentSearches-----User: ${req.user._id}, Found: ${searches.length}`);
+    logger.info(
+      `-----getRecentSearches-----User: ${req.user._id}, Found: ${searches.length}`,
+    );
     res.json(searches);
   } catch (error) {
-    logger.error("-----getRecentSearches-----Server error in getRecentSearches", error);
+    logger.error(
+      "-----getRecentSearches-----Server error in getRecentSearches",
+      error,
+    );
     res.status(500).json({ message: error.message });
   }
 };
@@ -574,23 +711,28 @@ exports.uploadProductImages = async (req, res) => {
   try {
     // ✅ Role check
     if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Only admins can upload product images" });
+      return res
+        .status(403)
+        .json({ error: "Only admins can upload product images" });
     }
 
     // multer se multiple files aayengi
     // const filenames = req.files.map(file => file.filename);
-     // path add 
-     const filenames = req.files.map(file =>file.filename);
+    // path add
+    const filenames = req.files.map((file) => file.filename);
 
     // productId body se aayega
     const product = await Product.findByIdAndUpdate(
       req.body.productId,
-      { $push: { images: { $each: filenames } } }, 
-      { new: true }
+      { $push: { images: { $each: filenames } } },
+      { new: true },
     );
 
     // ✅ Logger
-    console.log(`[UPLOAD] Admin ${req.user.id} uploaded images for product ${req.body.productId}:`, filenames);
+    console.log(
+      `[UPLOAD] Admin ${req.user.id} uploaded images for product ${req.body.productId}:`,
+      filenames,
+    );
 
     res.json({ message: "Product images uploaded successfully", product });
   } catch (err) {

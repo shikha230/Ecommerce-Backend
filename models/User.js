@@ -36,7 +36,14 @@ const userSchema = new mongoose.Schema(
       enum: ["Active", "Inactive"],
       default: "Active",
     },
-    lastname:{
+    
+    role: {
+    type: String,
+    enum: ["user"],
+    default: "user",
+   },
+    
+   lastname:{
       type:String,
     },
     address: { 

@@ -14,6 +14,10 @@ const contactRoutes = require("./Routes/contactRoutes");
 const customerRoutes = require("./Routes/customerRoutes");
 const reviewRoutes = require("./Routes/reviewRoutes");
 const returnRoutes = require("./Routes/returnRoutes");
+const userCommonRoutes = require("./Routes/usercommonRoutes");
+
+
+
 
 
 
@@ -114,6 +118,8 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/review", reviewRoutes);
 app.use("/api/return", returnRoutes);
+app.use("/api/common", userCommonRoutes);
+
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

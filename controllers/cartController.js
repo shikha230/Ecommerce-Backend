@@ -4,17 +4,20 @@ const logger = require("../helper/logger");
 
 exports.addtoCart = async (req, res) => {
   try {
-      //Login validation
+    //Login validation
     if (!req.user || !req.user.id) {
       return res.status(401).json({
         success: false,
-        message: "Please login first to add items to cart"
+        message: "Please login first to add items to cart",
       });
     }
     const userId = req.user.id;
-    const { productId, quantity, size, dimensions } = req.body;
+    const { productId, quantity, size, dimensions, installationRequired } =
+      req.body;
 
-    logger.info(`Add to cart request by user: ${userId}, product: ${productId}, qty: ${quantity}`);
+    logger.info(
+      `Add to cart request by user: ${userId}, product: ${productId}, qty: ${quantity}`,
+    );
 
     if (!productId || !quantity || quantity < 1) {
       logger.warn("Invalid input data for addToCart");
@@ -34,21 +37,22 @@ exports.addtoCart = async (req, res) => {
 
       cart = new Cart({
         user: userId,
-        products: [{
-          product: productId,
-          quantity,
-          size,
-          dimensions,
-          installationRequired: product.installationRequired   // ✅ yaha product ka flag use karo
-        }],
-         isActive: true   // ✅ cart create hone par active mark karo
-  
+        products: [
+          {
+            product: productId,
+            quantity,
+            size,
+            dimensions,
+            installationRequired: installationRequired || false, // ✅ yaha product ka flag use karo
+          },
+        ],
+        isActive: true, // ✅ cart create hone par active mark karo
       });
     } else {
       logger.info("Cart found, checking for existing product");
 
       const existingProduct = cart.products.find(
-        (p) => p.product.toString() === productId
+        (p) => p.product.toString() === productId,
       );
 
       if (existingProduct) {
@@ -59,7 +63,9 @@ exports.addtoCart = async (req, res) => {
         if (dimensions) existingProduct.dimensions = dimensions;
 
         // ✅ installationRequired ko product ke flag se sync karo
-        existingProduct.installationRequired = product.installationRequired;
+        if (installationRequired !== undefined) {
+          existingProduct.installationRequired = installationRequired;
+        }
       } else {
         logger.info("New product, adding to cart");
         cart.products.push({
@@ -67,7 +73,7 @@ exports.addtoCart = async (req, res) => {
           quantity,
           size,
           dimensions,
-          installationRequired: product.installationRequired   // ✅ yaha bhi add kiya
+          installationRequired: product.installationRequired, // ✅ yaha bhi add kiya
         });
       }
       cart.isActive = true; // ✅ product add/update hone par cart active hi rahe
@@ -76,44 +82,52 @@ exports.addtoCart = async (req, res) => {
     await cart.save();
     logger.info(`Cart saved successfully for user: ${userId}`);
 
-    const populatedCart = await Cart.findById(cart._id)
-      .populate("products.product", "name price colour images installationRequired averageRating numReviews");
+    const populatedCart = await Cart.findById(cart._id).populate(
+      "products.product",
+      "name price colour images installationRequired averageRating numReviews",
+    );
 
-    res.status(200).json({ message: "Item added to cart", cart: populatedCart });
+    res
+      .status(200)
+      .json({ message: "Item added to cart", cart: populatedCart });
   } catch (err) {
     console.error("AddToCart Error:", err);
     res.status(500).json({
       message: "Server error",
       error: err.message,
-      stack: err.stack
+      stack: err.stack,
     });
   }
 };
-
-// update cart
-
-exports.updateCart = async (req, res) => {
+ exports.updateCart = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { productId, action, size, dimensions,installationRequired } = req.body;
+    const { productId, action, size, dimensions, installationRequired } =
+      req.body;
+    console.log("installationRequired:", installationRequired);
+    console.log("Type:", typeof installationRequired);
 
-    logger.info(`UpdateCart request by user: ${userId}, product: ${productId}, action: ${action},installationRequired: ${installationRequired}`);
-
-   
+    logger.info(
+      `UpdateCart request by user: ${userId}, product: ${productId}, action: ${action},installationRequired: ${installationRequired}`,
+    );
 
     if (!productId) {
       logger.warn("Invalid input data: productId missing");
       return res.status(400).json({ message: "Invalid input data" });
     }
 
-    let cart = await Cart.findOne({ user: userId });
+    let cart = await Cart.findOne({ user: userId }).populate(
+      "products.product",
+      "name price images installationRequired",
+    );
+
     if (!cart) {
       logger.warn(`Cart not found for user: ${userId}`);
       return res.status(404).json({ message: "Cart not found" });
     }
 
     const productInCart = cart.products.find(
-      (p) => p.product.toString() === productId
+      (p) => p.product._id.toString() === productId,
     );
     if (!productInCart) {
       logger.warn(`Product ${productId} not found in cart for user: ${userId}`);
@@ -123,14 +137,18 @@ exports.updateCart = async (req, res) => {
     // Update quantity
     if (action === "increment") {
       productInCart.quantity += 1;
-      logger.info(`Incremented quantity for product ${productId}, new qty: ${productInCart.quantity}`);
+      logger.info(
+        `Incremented quantity for product ${productId}, new qty: ${productInCart.quantity}`,
+      );
     } else if (action === "decrement") {
       productInCart.quantity -= 1;
-      logger.info(`Decremented quantity for product ${productId}, new qty: ${productInCart.quantity}`);
+      logger.info(
+        `Decremented quantity for product ${productId}, new qty: ${productInCart.quantity}`,
+      );
 
       if (productInCart.quantity <= 0) {
         cart.products = cart.products.filter(
-          (p) => p.product.toString() !== productId
+          (p) => p.product.toString() !== productId,
         );
         logger.info(`Removed product ${productId} from cart as qty <= 0`);
       }
@@ -138,9 +156,9 @@ exports.updateCart = async (req, res) => {
 
     // ✅ Cart active/inactive check
     if (cart.products.length === 0) {
-        cart.isActive = false;
-    }   else {
-        cart.isActive = true;
+      cart.isActive = false;
+    } else {
+      cart.isActive = true;
     }
 
     // Update size & dimensions if provided
@@ -150,71 +168,94 @@ exports.updateCart = async (req, res) => {
     }
     if (dimensions) {
       productInCart.dimensions = dimensions;
-      logger.debug(`Updated dimensions for product ${productId}: ${JSON.stringify(dimensions)}`);
+      logger.debug(
+        `Updated dimensions for product ${productId}: ${JSON.stringify(dimensions)}`,
+      );
     }
-   
-    // 🔑 Logic: Admin ne product ke liye installationRequired true kiya hai
-    // Lekin user decide karega ki charges lagen ya nahi
+    if (installationRequired !== undefined) {
+      productInCart.installationRequired = installationRequired;
+    }
+    console.log(
+      "User Selected Installation:",
+      productInCart.installationRequired,
+    );
+    //   Yaha debug lagao
+    cart.products.forEach((p) => {
+      console.log("================================");
+      console.log("Product Name:", p.product.name);
+      console.log("Admin Installation:", p.product.installationRequired);
+      console.log("User Selection:", p.installationRequired);
+      console.log("Quantity:", p.quantity);
+    });
+
     let installationCharges = 0;
 
-// Count total quantity of products जिनमें admin ने installationRequired true किया है
-// और user ने भी Yes चुना है
-const installationProductCount = cart.products.reduce((count, p) => {
-  if (p.product.installationRequired && p.installationRequired === true) {
-    count += p.quantity;  // ✅ quantity भी जोड़ें
-  }
-  return count;
-}, 0);
+    const installationProductCount = cart.products.reduce((count, p) => {
+      const adminAllowed = p.product?.installationRequired === true;
+      const userSelected = p.installationRequired === true;
 
-if (installationProductCount === 1) {
-  installationCharges = 500;
-  logger.info("Installation charges applied: 500 (single installation-required product)");
-} else if (installationProductCount === 2) {
-  installationCharges = 250;
-  logger.info("Installation charges applied: 250 (two installation-required products)");
-} else if (installationProductCount >= 3) {
-  installationCharges = 0;
-  logger.info("Installation free (3 or more installation-required products)");
-} else {
-  installationCharges = 0; // user ने No चुना या admin ने false किया
-  logger.info("No installation required products, charges = 0");
-}
+      if (adminAllowed && userSelected) {
+        count += p.quantity;
+      }
 
-    
-     cart.installationCharges = installationCharges;
-     await cart.save();
+      return count;
+    }, 0);
 
-     const populatedCart = await Cart.findById(cart._id)
-      .populate("products.product", "name price colour images installationRequired averageRating numReviews ");
-      
-       res.status(200).json({ 
-        message: "Cart updated", 
-      cart: populatedCart 
+    console.log("Installation Product Count:", installationProductCount);
+
+    // Charges calculation
+    if (installationProductCount === 1) {
+      installationCharges = 500;
+      logger.info("Installation charges applied: 500");
+    } else if (installationProductCount === 2) {
+      installationCharges = 250;
+      logger.info("Installation charges applied: 250");
+    } else if (installationProductCount >= 3) {
+      installationCharges = 0;
+      logger.info("Installation free");
+    } else {
+      installationCharges = 0;
+      logger.info("No installation charges");
+    }
+
+    cart.installationCharges = installationCharges;
+    await cart.save();
+
+    const populatedCart = await Cart.findById(cart._id).populate(
+      "products.product",
+      "name price colour images installationRequired averageRating numReviews ",
+    );
+     res.status(200).json({
+      message: "Cart updated",
+      cart: populatedCart,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+   
 
 // getcart
 exports.getCart = async (req, res) => {
   try {
     const userId = req.user.id;
     // const cart = await Cart.findOne({ user: userId }).populate("products.product").populate("coupon"); // coupon details भी आएंगे
-      const cart = await Cart.findOne({ user: userId })
-      .populate("products.product", "name price colour images discount installationRequired averageRating numReviews") // ✅ extra fields
-      
+    const cart = await Cart.findOne({ user: userId }).populate(
+      "products.product",
+      "name price colour images discount installationRequired averageRating numReviews",
+    ); // ✅ extra fields
 
     if (!cart || cart.products.length === 0) {
       logger.info(`Cart is empty for user: ${userId}`);
-      return res.status(200).json({ message: "Cart is empty", cart: [],
-        isActive: false   // ✅ empty cart ke case mein inactive
+      return res.status(200).json({
+        message: "Cart is empty",
+        cart: [],
+        isActive: false, // ✅ empty cart ke case mein inactive
       });
     }
 
     // ✅ Active/inactive check
-    cart.isActive = cart.products.length > 0; 
-    
+    cart.isActive = cart.products.length > 0;
 
     // 🔹 Calculate subtotal
     let subtotal = 0;
@@ -223,18 +264,17 @@ exports.getCart = async (req, res) => {
       const quantity = item.quantity;
       subtotal += price * quantity;
     });
-     logger.debug(`Subtotal calculated: ${subtotal}`);
-
+    logger.debug(`Subtotal calculated: ${subtotal}`);
 
     //  Discount (example: product.discount %)
     let discount = 0;
     cart.products.forEach((item) => {
       if (item.product.discount) {
-        discount += (item.product.price * item.quantity * item.product.discount) / 100;
+        discount +=
+          (item.product.price * item.quantity * item.product.discount) / 100;
       }
     });
     logger.debug(`Product discount calculated: ${discount}`);
-
 
     // // Coupon discount
     // let couponDiscount = 0;
@@ -257,43 +297,47 @@ exports.getCart = async (req, res) => {
     }
     logger.debug(`Shipping charges: ${shipping}`);
 
-  //  Tax (optional 10%)
+    //  Tax (optional 10%)
     const tax = Math.round(subtotal * 0.1);
     logger.debug(`Tax calculated: ${tax}`);
-  
-   let installationCharges = 0;
 
-// Count total quantity of products जिनमें admin ने installationRequired true किया है
-// और user ने भी Yes चुना है
-const installationProductCount = cart.products.reduce((count, p) => {
-  if (p.product.installationRequired && p.installationRequired === true) {
-    count += p.quantity;  // ✅ quantity भी जोड़ें
-  }
-  return count;
-}, 0);
+    const installationProductCount = cart.products.reduce((count, p) => {
+      const adminAllowed = p.product?.installationRequired === true;
 
-if (installationProductCount === 1) {
-  installationCharges = 500;
-  logger.info("Installation charges applied: 500 (single installation-required product)");
-} else if (installationProductCount === 2) {
-  installationCharges = 250;
-  logger.info("Installation charges applied: 250 (two installation-required products)");
-} else if (installationProductCount >= 3) {
-  installationCharges = 0;
-  logger.info("Installation free (3 or more installation-required products)");
-} else {
-  installationCharges = 0; // user ने No चुना या admin ने false किया
-  logger.info("No installation required products, charges = 0");
-}
+      const userSelected = p.installationRequired === true;
 
- 
-  
-//  Total
-    const total = subtotal - discount  + shipping + tax + installationCharges;
-    logger.info(`Cart total for user ${userId}: ${total}`);;
-    
+      if (adminAllowed && userSelected) {
+        count += p.quantity;
+      }
+      return count;
+    }, 0);
+    let installationCharges = 0;
 
-  //  Single response with everything
+    if (installationProductCount === 1) {
+      installationCharges = 500;
+      logger.info(
+        "Installation charges applied: 500 (single installation-required product)",
+      );
+    } else if (installationProductCount === 2) {
+      installationCharges = 250;
+      logger.info(
+        "Installation charges applied: 250 (two installation-required products)",
+      );
+    } else if (installationProductCount >= 3) {
+      installationCharges = 0;
+      logger.info(
+        "Installation free (3 or more installation-required products)",
+      );
+    } else {
+      installationCharges = 0; // user ने No चुना या admin ने false किया
+      logger.info("No installation required products, charges = 0");
+    }
+
+    //  Total
+    const total = subtotal - discount + shipping + tax + installationCharges;
+    logger.info(`Cart total for user ${userId}: ${total}`);
+
+    //  Single response with everything
     res.status(200).json({
       cart,
       subtotal,
@@ -302,11 +346,10 @@ if (installationProductCount === 1) {
       tax,
       installationCharges,
       total,
-      items: cart.products,// har product ke saath installationRequired flag aa jayega
-      isActive: cart.isActive   // ✅ response mein include karo
+      items: cart.products, // har product ke saath installationRequired flag aa jayega
+      isActive: cart.isActive, // ✅ response mein include karo
     });
-    
- } catch (error) {
+  } catch (error) {
     logger.error(`Error in getCart: ${error.message}`);
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -332,7 +375,7 @@ exports.removeCart = async (req, res) => {
 
     const beforeCount = cart.products.length;
     cart.products = cart.products.filter(
-      (p) => p.product.toString() !== productId
+      (p) => p.product.toString() !== productId,
     );
     const afterCount = cart.products.length;
 
@@ -341,7 +384,7 @@ exports.removeCart = async (req, res) => {
     } else {
       logger.info(`Product ${productId} removed from cart for user: ${userId}`);
     }
-     
+
     // Active/inactive check
     if (cart.products.length === 0) {
       cart.isActive = false;
@@ -354,15 +397,12 @@ exports.removeCart = async (req, res) => {
     await cart.save();
     logger.info(`Cart saved successfully after removal for user: ${userId}`);
 
-
     res.status(200).json({ message: "Item removed from cart", cart });
   } catch (err) {
     logger.error(`Error in removeCart: ${err.message}`);
     res.status(500).json({ message: err.message });
   }
 };
-
-
 
 //Remove Entire Cart
 exports.deleteCart = async (req, res) => {
@@ -380,7 +420,9 @@ exports.deleteCart = async (req, res) => {
     logger.info(`Cart deleted successfully for user: ${userId}`);
     res.status(200).json({ message: "Cart deleted successfully" });
   } catch (error) {
-    logger.error(`Error in deleteCart for user: ${req.params.userId} - ${error.message}`);
+    logger.error(
+      `Error in deleteCart for user: ${req.params.userId} - ${error.message}`,
+    );
     res.status(500).json({ error: error.message });
   }
 };

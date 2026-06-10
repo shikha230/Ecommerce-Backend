@@ -27,9 +27,14 @@ const orderSchema = new mongoose.Schema(
           unit: String,
         },
       ],
-
-        price: { type: Number, required: true },
+      
+      installationRequired: {
+      type: Boolean,
+      default: false
       },
+      price: { type: Number, required: true },
+      },
+    
     ],
 
     subtotal: {
@@ -83,10 +88,7 @@ const orderSchema = new mongoose.Schema(
         },
     
     },
-    installationRequired: {
-    type: Boolean,
-    default: false
-  },
+    
     installationCharges: { 
       type: Number, 
       default: 0 
