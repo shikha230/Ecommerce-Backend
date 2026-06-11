@@ -109,7 +109,7 @@ exports.login = async (req, res) => {
     );
     logger.info("-----login------Admin login successfully ")
     
-    res.json({ success: true, token });
+    res.json({ success: true, token, role:admin.role });
   } catch (err) {
     logger.error("-----login------ error  ")
     

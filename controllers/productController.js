@@ -57,7 +57,7 @@ exports.createProduct = async (req, res) => {
       dimensions,
       tags,
       installationRequired: installationRequired || false,
-      isBestSelling: isBestSelling ?? false, // ✅ default false, admin set karega
+      isBestSelling: isBestSelling ?? false, //  default false, admin set karega
     });
 
     await product.save();
@@ -107,7 +107,7 @@ exports.getProduct = async (req, res) => {
   }
 };
 
-// ✅ Get Product by Name(admin+user)
+// Get Product by Name(admin+user)
 exports.getProductByName = async (req, res) => {
   try {
     const { name } = req.params;
@@ -145,8 +145,7 @@ exports.getProductById = async (req, res) => {
       logger.info("----getproductsbyId-----product not found");
       return res.status(404).json({ error: "Product not found" });
     }
-
-    // 🔹 Check wishlist for this user
+    //  Check wishlist for this user
     const userId = req.user?.id;
 
     let isLiked = false;
@@ -201,7 +200,7 @@ exports.updateProduct = async (req, res) => {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // ✅ Validations only if field is provided
+    // Validations only if field is provided
     if (req.body.price !== undefined && req.body.price < 0) {
       return res.status(400).json({ error: "Price must be positive" });
     }
@@ -230,12 +229,18 @@ exports.updateProduct = async (req, res) => {
     }
     //  isBestSelling validation
     if (req.body.isBestSelling !== undefined) {
+      logger.info(
+        `Before Update -> Product: ${product.name}, isBestSelling: ${product.isBestSelling}`,
+      );
       if (typeof req.body.isBestSelling !== "boolean") {
         return res
           .status(400)
           .json({ error: "isBestSelling must be true or false" });
       }
       product.isBestSelling = req.body.isBestSelling;
+      logger.info(
+        `After Update -> Product: ${product.name}, isBestSelling: ${product.isBestSelling}`,
+      );
     }
 
     //  installationRequired validation
@@ -357,136 +362,42 @@ exports.getfeaturedProduct = async (req, res) => {
   }
 };
 
-// // Update Best Selling Flag (Admin only)
-// exports.updateBestSellingFlag = async (req, res) => {
-//   try {
-//     if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-//       logger.warn("-----updateBestSellingFlag----- Access denied: Non-admin tried to update BestSelling flag");
-//       return res.status(403).json({ message: "Access denied: Admin only" });
-//     }
-
-//     const { productId, isBestSelling } = req.body;
-
-//     const product = await Product.findByIdAndUpdate(
-//       productId,
-//       { isBestSelling },
-//       { new: true }
-// );
-//     if (!product) {
-//       logger.warn(`-----updateBestSellingFlag----- Product not found: ${productId}`);
-//       return res.status(404).json({ message: "Product not found" });
-//     }
-
-//     product.isBestSelling = isBestSelling;
-//     await product.save();
-
-//     logger.info(`-----updateBestSellingFlag----- Product '${product.name}' updated: isBestSelling = ${isBestSelling}`);
-
-//     res.status(200).json({
-//       message: `Product ${isBestSelling ? "marked" : "unmarked"} as Best Selling successfully`,
-//       product
-//     });
-//   } catch (error) {
-//     logger.error("-----updateBestSellingFlag----- Server error: " + error.message);
-//     res.status(500).json({ error: "Server error", details: error.message });
-//   }
-// };
-// Get Best Selling Products
 exports.getbestSellingProduct = async (req, res) => {
   try {
-    console.log("===== BestSelling API Called =====");
+    logger.info("-----getBestSellingProducts-----API Called");
 
     let { limit } = req.query;
-
     limit = Number(limit) > 0 ? Number(limit) : 5;
+    logger.info(`-----getBestSellingProducts-----Limit Applied: ${limit}`);
 
-    // Minimum sales required to be considered bestseller
-    const BEST_SELLING_THRESHOLD = 5;
+    // Query products with isBestSelling true
+    const products = await Product.find({ isBestSelling: { $eq: true } })
+      .populate("category")
+      .limit(limit)
+      .lean();
 
-    // Admin selected bestseller products
-    const adminBestSelling = await Product.find({
-      isBestSelling: true,
-    }).populate("category");
-    
-    console.log("=================================");
-    console.log("Admin Best Selling Count:", adminBestSelling.length);
-
-    // Auto bestseller products based on sold count
-    const autoBestSelling = await Product.find({
-      sold: { $gte: BEST_SELLING_THRESHOLD },
-    })
-      .sort({ sold: -1 })
-      .populate("category");
-
-       autoBestSelling.forEach((p) => {
-      console.log(
-        `[AUTO] ${p.name} | isBestSelling=${p.isBestSelling} | sold=${p.sold}`
-      );
-    });
-
-    // Merge and remove duplicates
-    const uniqueProductsMap = new Map();
-
-    [...adminBestSelling, ...autoBestSelling].forEach((product) => {
-      uniqueProductsMap.set(product._id.toString(), product);
-    });
-
-    // Convert back to array
-    let products = Array.from(uniqueProductsMap.values());
-    
-    console.log("=================================");
-    console.log("Merged Products Count:", products.length);
-
-    // Sort:
-    // 1. Admin bestseller first
-    // 2. Higher sold count first
-    products.sort((a, b) => {
-      if (a.isBestSelling !== b.isBestSelling) {
-        return b.isBestSelling - a.isBestSelling;
-      }
-
-      return (b.sold || 0) - (a.sold || 0);
-    });
-
-    // Apply limit
-    products = products.slice(0, limit);
-    console.log("Final products:");
-
-    console.log("=================================");
-    console.log("Final Products Count:", products.length);
-
-    products.forEach((p) => {
-      console.log(
-        `[FINAL] ${p.name} | isBestSelling=${p.isBestSelling} | sold=${p.sold}`
-      );
-    });
-
-    console.log("=================================");
-
+    logger.info(
+      `-----getBestSellingProducts-----Products Found: ${products.length}`,
+    );
     if (!products.length) {
       logger.info(
-        "----getBestSellingProducts-----No best selling products found",
+        "-----getBestSellingProducts-----No best selling products found",
       );
-
       return res.status(404).json({
         success: false,
         message: "No best selling products found",
       });
     }
-
     logger.info(
-      "----getBestSellingProducts-----Best selling products fetched successfully",
+      "-----getBestSellingProducts-----Best selling products fetched successfully",
     );
-
     return res.status(200).json({
       success: true,
       totalProducts: products.length,
       products,
     });
   } catch (error) {
-    console.error("Best Selling Error:", error);
-    logger.error(`----getBestSellingProducts-----${error.message}`);
-
+    logger.error(`-----getBestSellingProducts-----${error.message}`);
     return res.status(500).json({
       success: false,
       message: "Server Error",
@@ -494,136 +405,6 @@ exports.getbestSellingProduct = async (req, res) => {
     });
   }
 };
-
-/// controllers/productController.js
-// exports.getbestSellingProduct = async (req, res) => {
-//   try {
-//     let { limit } = req.query;
-//     limit = Number(limit) > 0 ? Number(limit) : 5;
-
-//     const result = await Order.aggregate([
-//       // 1. Sirf wahi orders lo jo successful hain
-//       { $match: { paymentStatus: "Successful" } },
-
-//       // 2. Products array ko individual rows mein tod do
-//       { $unwind: "$products" },
-
-//       // 3. Product ID ke basis par sale count karo
-//       {
-//         $group: {
-//           _id: "$products.product",
-//           totalSold: { $sum: "$products.quantity" },
-//           orderCount: { $sum: 1 }
-//         }
-//       },
-
-//       // 4. Product collection ke saath join karo details ke liye
-//       {
-//         $lookup: {
-//           from: "products", // Check karein aapka collection name 'products' hi hai na
-//           localField: "_id",
-//           foreignField: "_id",
-//           as: "productDetails"
-//         }
-//       },
-
-//       // 5. Array ko object mein badlo
-//       { $unwind: "$productDetails" },
-
-//       // 6. ❗ YAHAN HAI MAIN FIX: Sirf isBestSelling true waale filter karein
-//       {
-//         $match: {
-//           "productDetails.isBestSelling": true,
-//           "productDetails.is_delete": false
-//         }
-//       },
-
-//       // 7. Highest sales waale upar rakho
-//       { $sort: { totalSold: -1 } },
-
-//       // 8. Limit apply karein
-//       { $limit: limit },
-
-//       // 9. Output ko saaf-suthra format karein
-//       {
-//         $project: {
-//           _id: "$productDetails._id",
-//           name: "$productDetails.name",
-//           price: "$productDetails.price",
-//           images: "$productDetails.images",
-//           isBestSelling: "$productDetails.isBestSelling",
-//           totalSold: 1,
-//           quantity: "$productDetails.quantity",
-//           category: "$productDetails.category",
-//           tags: "$productDetails.tags"
-//         }
-//       }
-//     ]);
-
-//     // Agar koi product isBestSelling: true nahi mila
-//     if (result.length === 0) {
-//       return res.status(200).json({
-//         success: true,
-//         message: "No best selling products found with active flag",
-//         products: []
-//       });
-//     }
-
-//     res.status(200).json({ success: true, products: result });
-
-//   } catch (error) {
-//     res.status(500).json({ error: "Server error", details: error.message });
-//   }
-// };
-
-// controllers/productController.js
-
-// exports.getbestSellingProduct = async (req, res) => {
-//   try {
-//     let { limit } = req.query;
-//     limit = Number(limit) > 0 ? Number(limit) : 5;
-
-//     // Aggregate orders with successful payment
-//     const bestSelling = await Order.aggregate([
-//       { $match: { paymentStatus: "Successful" } }, // only paid orders
-//       { $unwind: "$products" }, // break array into individual docs
-//       {
-//         $group: {
-//           _id: "$products.product", // group by product id
-//           totalSold: { $sum: "$products.quantity" }, // sum quantities
-//           orderCount: { $sum: 1 } // count number of orders
-//         }
-//       },
-//       { $sort: { totalSold: -1 } }, // sort by sold quantity
-//       { $limit: limit }
-//     ]);
-
-//     // Populate product details with isBestSelling filter
-//     const products = await Product.find({
-//       _id: { $in: bestSelling.map(p => p._id) },
-//       isBestSelling: true   // ✅ सिर्फ वही products जिनका flag true है
-//     }).populate("category");
-
-//     // Merge product info with sold counts
-//     const result = products.map(prod => {
-//       const stats = bestSelling.find(p => String(p._id) === String(prod._id));
-//       return {
-//         ...prod.toObject(),
-//         totalSold: stats?.totalSold || 0,
-//         orderCount: stats?.orderCount || 0
-//       };
-//     });
-
-//     if (!result || result.length === 0) {
-//       return res.status(404).json({ message: "No best selling products found" });
-//     }
-
-//     res.status(200).json({ products: result });
-
-//   } catch (error) {
-//     res.status(500).json({ error: "Server error", details: error.message });
-//   }
-// };
 
 //  Filter Products by Price (High to Low / Low to High)
 exports.getfilterByPrice = async (req, res) => {
@@ -659,7 +440,7 @@ exports.searchProducts = async (req, res) => {
     const keyword = req.query.q;
     const regex = new RegExp(keyword, "i");
 
-    // पहले category collection में matching categories खोजें
+    //In first category collection searching categories
     const categories = await Category.find({ name: { $regex: regex } }).select(
       "_id",
     );
@@ -669,7 +450,7 @@ exports.searchProducts = async (req, res) => {
         { name: { $regex: regex } },
         { category: { $in: categories.map((c) => c._id) } },
       ],
-    }).populate("category"); // category details भी लाना चाहें तो
+    }).populate("category"); // category details
 
     await Search.create({
       user: req.user.id,
