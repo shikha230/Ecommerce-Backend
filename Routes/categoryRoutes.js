@@ -10,7 +10,11 @@ router.delete("/:id", tokenMiddleware, categoryController.deleteCategory);
 
 // ✅ Public routes (User + Admin both)
 router.get("/all", categoryController.getCategories);
+router.get("/home-category", categoryController.getHomeCategories);
+
 router.get("/:id", categoryController.getCategoryById);
+
+
 
 
 module.exports = router;

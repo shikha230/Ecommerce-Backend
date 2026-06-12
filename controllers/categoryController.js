@@ -1,6 +1,7 @@
 const Category = require("../models/category");
-const Joi = require('joi');
+const Joi = require("joi");
 const mongoose = require("mongoose");
+const Product = require("../models/product");
 const logger = require("../helper/logger");
 
 // Joi Validation Schema
@@ -13,25 +14,38 @@ const categoryValidationSchema = Joi.object({
 exports.createCategory = async (req, res) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-      logger.warn("-----createCategory----- Access denied: User tried to create category");
+      logger.warn(
+        "-----createCategory----- Access denied: User tried to create category",
+      );
       return res.status(403).json({ message: "Access denied: Admin only" });
     }
 
     const { error } = categoryValidationSchema.validate(req.body);
     if (error) {
-      logger.error("-----createCategory----- Validation error: " + error.details[0].message);
+      logger.error(
+        "-----createCategory----- Validation error: " +
+          error.details[0].message,
+      );
       return res.status(400).json({ error: error.details[0].message });
     }
 
-    const existing = await Category.findOne({ categoryName: req.body.categoryName });
+    const existing = await Category.findOne({
+      categoryName: req.body.categoryName,
+    });
     if (existing) {
-      logger.error("-----createCategory----- Category already exists: " + req.body.categoryName);
+      logger.error(
+        "-----createCategory----- Category already exists: " +
+          req.body.categoryName,
+      );
       return res.status(400).json({ error: "Category name already exists" });
     }
 
     const category = new Category(req.body);
     await category.save();
-    logger.info("-----createCategory----- Category created successfully: " + category.categoryName);
+    logger.info(
+      "-----createCategory----- Category created successfully: " +
+        category.categoryName,
+    );
     res.status(201).json(category);
   } catch (err) {
     logger.error("-----createCategory----- Server error: " + err.message);
@@ -42,10 +56,10 @@ exports.createCategory = async (req, res) => {
 // Get All Categories (User + Admin)
 exports.getCategories = async (req, res) => {
   try {
-    const category = await Category.find({ is_delete: false })
-    .sort({ createdAt: -1 });   //  latest category top 
+    const category = await Category.find({ is_delete: false }).sort({
+      createdAt: -1,
+    }); //  latest category top
 
- 
     logger.info("-----getCategories----- Fetched all categories");
     res.json(category);
   } catch (err) {
@@ -53,22 +67,81 @@ exports.getCategories = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+// Get 4 Categories for Home Page (Name & Description only)
+exports.getHomeCategories = async (req, res) => {
+  try {
+    // Sirf 4 active categories fetch karo
+    const categories = await Category.find({
+      is_delete: { $ne: true },
+    })
+      .select("categoryName description")
+      .limit(4);
+
+    if (!categories || categories.length === 0) {
+      logger.error("-----getHomeCategories----- No categories found");
+      return res.status(404).json({
+        success: false,
+        message: "No categories found",
+      });
+    }
+   // Har category ke liye ek product image lao
+    const categoryData = await Promise.all(
+      categories.map(async (category) => {
+        const product = await Product.findOne({
+          category: category._id,
+          is_delete: { $ne: true },
+        }).select("images");
+
+        return {
+          _id: category._id,
+          categoryName: category.categoryName,
+          description: category.description,
+          image:
+            product && product.images && product.images.length > 0
+              ? product.images[0]
+              : "",
+        };
+      }),
+    );
+
+    logger.info("-----getHomeCategories----- Categories fetched successfully");
+
+    return res.status(200).json({
+      success: true,
+      data: categoryData,
+    });
+  } catch (err) {
+    logger.error("-----getHomeCategories----- Server Error: " + err.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: err.message,
+    });
+  }
+};
 
 // Get Single Category by ID (User + Admin)
 exports.getCategoryById = async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      logger.error("-----getCategoryById----- Invalid category ID: " + req.params.id);
+      logger.error(
+        "-----getCategoryById----- Invalid category ID: " + req.params.id,
+      );
       return res.status(400).json({ error: "Invalid category ID" });
     }
 
     const category = await Category.findById(req.params.id);
     if (!category || category.is_delete) {
-      logger.error("-----getCategoryById----- Category not found: " + req.params.id);
+      logger.error(
+        "-----getCategoryById----- Category not found: " + req.params.id,
+      );
       return res.status(404).json({ message: "Category not found" });
     }
 
-    logger.info("-----getCategoryById----- Category fetched: " + category.categoryName);
+    logger.info(
+      "-----getCategoryById----- Category fetched: " + category.categoryName,
+    );
     res.json(category);
   } catch (err) {
     logger.error("-----getCategoryById----- Server error: " + err.message);
@@ -76,28 +149,39 @@ exports.getCategoryById = async (req, res) => {
   }
 };
 
+
 // Update Category (Admin only)
 exports.updateCategory = async (req, res) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-      logger.warn("-----updateCategory----- Access denied: User tried to update category");
+      logger.warn(
+        "-----updateCategory----- Access denied: User tried to update category",
+      );
       return res.status(403).json({ message: "Access denied: Admin only" });
     }
 
     const { error } = categoryValidationSchema.validate(req.body);
     if (error) {
-      logger.error("-----updateCategory----- Validation error: " + error.details[0].message);
+      logger.error(
+        "-----updateCategory----- Validation error: " +
+          error.details[0].message,
+      );
       return res.status(400).json({ error: error.details[0].message });
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      logger.error("-----updateCategory----- Invalid category ID: " + req.params.id);
+      logger.error(
+        "-----updateCategory----- Invalid category ID: " + req.params.id,
+      );
       return res.status(400).json({ error: "Invalid category ID" });
     }
 
     const category = await Category.findById(req.params.id);
     if (!category || category.is_delete) {
-      logger.error("-----updateCategory----- Category not found or deleted: " + req.params.id);
+      logger.error(
+        "-----updateCategory----- Category not found or deleted: " +
+          req.params.id,
+      );
       return res.status(404).json({ message: "Category not found" });
     }
 
@@ -105,7 +189,10 @@ exports.updateCategory = async (req, res) => {
     category.description = req.body.description || category.description;
 
     await category.save();
-    logger.info("-----updateCategory----- Category updated successfully: " + category.categoryName);
+    logger.info(
+      "-----updateCategory----- Category updated successfully: " +
+        category.categoryName,
+    );
     res.json(category);
   } catch (err) {
     logger.error("-----updateCategory----- Server error: " + err.message);
@@ -117,27 +204,36 @@ exports.updateCategory = async (req, res) => {
 exports.deleteCategory = async (req, res) => {
   try {
     if (req.user.role !== "admin" && req.user.role !== "superadmin") {
-      logger.warn("-----deleteCategory----- Access denied: User tried to delete category");
+      logger.warn(
+        "-----deleteCategory----- Access denied: User tried to delete category",
+      );
       return res.status(403).json({ message: "Access denied: Admin only" });
     }
 
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      logger.error("-----deleteCategory----- Invalid category ID: " + req.params.id);
+      logger.error(
+        "-----deleteCategory----- Invalid category ID: " + req.params.id,
+      );
       return res.status(400).json({ error: "Invalid category ID" });
     }
 
     const category = await Category.findByIdAndUpdate(
       req.params.id,
       { is_delete: true },
-      { new: true }
+      { new: true },
     );
 
     if (!category) {
-      logger.error("-----deleteCategory----- Category not found: " + req.params.id);
+      logger.error(
+        "-----deleteCategory----- Category not found: " + req.params.id,
+      );
       return res.status(404).json({ message: "Category not found" });
     }
 
-    logger.info("-----deleteCategory----- Category deleted successfully: " + category.categoryName);
+    logger.info(
+      "-----deleteCategory----- Category deleted successfully: " +
+        category.categoryName,
+    );
     res.json({ message: "Category deleted successfully" });
   } catch (err) {
     logger.error("-----deleteCategory----- Server error: " + err.message);
