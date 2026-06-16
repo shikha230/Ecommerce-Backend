@@ -5,6 +5,8 @@ const Search = require("../models/search");
 const Review = require("../models/review");
 const User = require("../models/User");
 const Wishlist = require("../models/wishlist");
+// const cloudinary = require("../config/cloudinary");
+
 
 const logger = require("../helper/logger");
 
@@ -437,7 +439,10 @@ exports.getfilterByPrice = async (req, res) => {
 // searchProducts
 exports.searchProducts = async (req, res) => {
   try {
-    const keyword = req.query.q;
+    const keyword = req.query.query;
+    if (!keyword) {
+      return res.status(400).json({ message: "Keyword is required" });
+    }
     const regex = new RegExp(keyword, "i");
 
     //In first category collection searching categories
@@ -521,3 +526,79 @@ exports.uploadProductImages = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+// exports.uploadProductImages = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({
+//         error: "Only admins can upload product images",
+//       });
+//     }
+      //  console.log("FILES:", req.files);
+//     const imageUrls = req.files.map((file) => file.path);
+        
+//     const product = await Product.findByIdAndUpdate(
+//       req.body.productId,
+//       {
+//         $push: {
+//           images: { $each: imageUrls },
+//         },
+//       },
+//       { new: true }
+//     );
+
+//     console.log(
+//       `[UPLOAD] Admin ${req.user.id} uploaded images for product ${req.body.productId}:`,
+//       imageUrls
+//     );
+
+//     res.json({
+//       message: "Product images uploaded successfully",
+//       product,
+//     });
+//   } catch (err) {
+//     console.error(`[ERROR] Upload failed: ${err.message}`);
+//     res.status(500).json({ error: err.message });
+//   }
+// };
+
+
+
+// exports.removeProductImage = async (req, res) => {
+//   try {
+//     if (req.user.role !== "admin") {
+//       return res.status(403).json({
+//         message: "Only admin can remove images",
+//       });
+//     }
+
+//     const { productId, public_id } = req.body;
+
+//     const product = await Product.findById(productId);
+
+//     if (!product) {
+//       return res.status(404).json({
+//         message: "Product not found",
+//       });
+//     }
+
+//     // Cloudinary se delete
+//     await cloudinary.uploader.destroy(public_id);
+
+//     // MongoDB se remove
+//     product.images = product.images.filter(
+//       (img) => img.public_id !== public_id
+//     );
+
+//     await product.save();
+
+//     res.status(200).json({
+//       message: "Image deleted successfully",
+//       product,
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({
+//       message: error.message,
+//     });
+//   }
+// };

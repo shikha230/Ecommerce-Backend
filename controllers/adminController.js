@@ -32,7 +32,7 @@ exports.signup = async (req, res) => {
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin) {
       logger.info("-----signup------ Email already registered ")
-        
+      
       return res.status(400).json({ error: "Email already registered" });
     }
 
