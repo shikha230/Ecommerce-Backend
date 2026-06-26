@@ -6,7 +6,7 @@ const tokenMiddleware = require("../middleware/tokenMiddleware");
 router.post("/review-add/:id",tokenMiddleware,reviewController.addReview);
 
 //get review
-router.get("/get-review/:id",tokenMiddleware,reviewController.getProductReviews);
+router.get("/get-review/:id",reviewController.getProductReviews);
 
 // Update review (user or admin)
 router.put("/update/:reviewId",tokenMiddleware,reviewController.updateReview);

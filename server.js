@@ -15,6 +15,7 @@ const customerRoutes = require("./Routes/customerRoutes");
 const reviewRoutes = require("./Routes/reviewRoutes");
 const returnRoutes = require("./Routes/returnRoutes");
 const userCommonRoutes = require("./Routes/usercommonRoutes");
+// const { razorpayWebhook } = require("./Controllers/paymentController");
 
 
 
@@ -87,7 +88,10 @@ app.use(cors({
 //   }),
 // );
 
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({ limit: '20mb'})); //verify: (req, res, buf) => {
+   //     req.rawBody = buf; // यह Signature Verification के लिए ज़रूरी है
+  
+//));
 // EJS setup
 app.use(express.urlencoded({limit: '20mb', extended: true }));
 app.set("view engine", "ejs");
@@ -109,6 +113,12 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/review", reviewRoutes);
 app.use("/api/return", returnRoutes);
 app.use("/api/common", userCommonRoutes);
+// app.post('/api/payment/webhook', express.raw({ type: 'application/json' }), razorpayWebhook);
+//  --- Webhook Route ---
+// अब यहाँ express.raw की ज़रूरत नहीं क्योंकि हमने ऊपर global middleware में rawBody कैप्चर कर ली है
+//app.post('/api/payment/webhook', razorpayWebhook);
+
+
 
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

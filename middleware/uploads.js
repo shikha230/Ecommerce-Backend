@@ -59,18 +59,22 @@ const fileFilter = (req, file, cb) => {
 };
 
 // Uploaders
-const uploadProfile = multer({ storage: profileStorage, fileFilter });
+const uploadProfile = multer({ 
+  storage: profileStorage, 
+  fileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB limit for videos
+ });
 const uploadProduct = multer({
   storage: productStorage,
   fileFilter,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
 });
 
 const uploadUserProfile = multer({ storage: userProfileStorage, fileFilter });
 const uploadProof = multer({
   storage: proofStorage,
   fileFilter,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB limit for videos
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB limit 
 });
 
 module.exports = {

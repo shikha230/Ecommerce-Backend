@@ -293,14 +293,16 @@ exports.getCart = async (req, res) => {
     //  Shipping (free or fixed)
     let shipping = 0;
     if (subtotal < 10000) {
-      shipping = 500; // example
+      shipping = 1; // example
     }
     logger.debug(`Shipping charges: ${shipping}`);
 
     //  Tax (optional 10%)
-    const tax = Math.round(subtotal * 0.1);
+    // const tax = Math.round(subtotal * 0.1);
+    // logger.debug(`Tax calculated: ${tax}`);
+    const tax = 0;
     logger.debug(`Tax calculated: ${tax}`);
-
+     
     const installationProductCount = cart.products.reduce((count, p) => {
       const adminAllowed = p.product?.installationRequired === true;
 

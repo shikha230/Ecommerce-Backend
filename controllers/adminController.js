@@ -261,10 +261,10 @@ exports.adminProfile = async (req, res) => {
 // Profile update Personal Information
 exports.updateProfile = async (req, res) => {
   try {
-    const { firstName, lastName, phone, bio,email,profileImage, department } = req.body;
+    const { firstname, lastname, phone, bio,email,profileImage, department } = req.body;
     const updated = await Admin.findByIdAndUpdate(
       req.user.id,
-      { firstName, lastName, phone,email,profileImage, bio, department, },
+      { firstname, lastname, phone,email,profileImage, bio, department, },
       { new: true }
     ).select("-password");
     logger.info("------update------profile updated")

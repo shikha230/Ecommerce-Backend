@@ -124,8 +124,11 @@ const orderSchema = new mongoose.Schema(
     enum: ["Pending", "Successful", "Failed"],
     default: "Pending"
   },
-
+    paymentMethod: {
+    type: String,
+    default: null,
   },
+},
   { timestamps: true }
 );
 

@@ -7,7 +7,6 @@ const User = require("../models/User");
 const Wishlist = require("../models/wishlist");
 // const cloudinary = require("../config/cloudinary");
 
-
 const logger = require("../helper/logger");
 
 // Create Product
@@ -364,42 +363,80 @@ exports.getfeaturedProduct = async (req, res) => {
   }
 };
 
+// exports.getbestSellingProduct = async (req, res) => {
+//   try {
+//     console.log("BEST SELLING API HIT");
+//     logger.info("-----getBestSellingProducts-----API Called");
+
+//     let { limit } = req.query;
+//     limit = Number(limit) > 0 ? Number(limit) : 5;
+//     logger.info(`-----getBestSellingProducts-----Limit Applied: ${limit}`);
+
+//     // Query products with isBestSelling true
+//      const products = await Product.find({ isBestSelling: { $eq: true } })
+//           .populate("category")
+//           .limit(limit)
+//     .select("name isBestSelling")
+//     .lean();
+//     console.log(products);
+
+//     logger.info(
+//       `-----getBestSellingProducts-----Products Found: ${products.length}`,
+//     );
+//     if (!products.length) {
+//       logger.info(
+//         "-----getBestSellingProducts-----No best selling products found",
+//       );
+//       return res.status(404).json({
+//         success: false,
+//         message: "No best selling products found",
+//       });
+//     }
+//     logger.info(
+//       "-----getBestSellingProducts-----Best selling products fetched successfully",
+//     );
+//     return res.status(200).json({
+//       success: true,
+//       totalProducts: products.length,
+//       products,
+//     });
+//   } catch (error) {
+//     logger.error(`-----getBestSellingProducts-----${error.message}`);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server Error",
+//       error: error.message,
+//     });
+//   }
+// };
 exports.getbestSellingProduct = async (req, res) => {
   try {
-    logger.info("-----getBestSellingProducts-----API Called");
+    console.log("BEST SELLING API HIT");
+    logger.info("-----getBestSellingProducts API Called-----");
 
-    let { limit } = req.query;
-    limit = Number(limit) > 0 ? Number(limit) : 5;
-    logger.info(`-----getBestSellingProducts-----Limit Applied: ${limit}`);
-
-    // Query products with isBestSelling true
-    const products = await Product.find({ isBestSelling: { $eq: true } })
+    const products = await Product.find({
+      isBestSelling: true,
+    })
       .populate("category")
-      .limit(limit)
       .lean();
+    console.log(products);
+    // Extra safety check
+    const bestSellingProducts = products.filter(
+      (product) => product.isBestSelling === true,
+    );
 
     logger.info(
-      `-----getBestSellingProducts-----Products Found: ${products.length}`,
+      `-----Best Selling Products Found: ${bestSellingProducts.length}-----`,
     );
-    if (!products.length) {
-      logger.info(
-        "-----getBestSellingProducts-----No best selling products found",
-      );
-      return res.status(404).json({
-        success: false,
-        message: "No best selling products found",
-      });
-    }
-    logger.info(
-      "-----getBestSellingProducts-----Best selling products fetched successfully",
-    );
+
     return res.status(200).json({
       success: true,
-      totalProducts: products.length,
-      products,
+      totalProducts: bestSellingProducts.length,
+      products: bestSellingProducts,
     });
   } catch (error) {
-    logger.error(`-----getBestSellingProducts-----${error.message}`);
+    logger.error(`-----getBestSellingProducts Error----- ${error.message}`);
+
     return res.status(500).json({
       success: false,
       message: "Server Error",
@@ -492,29 +529,27 @@ exports.getrecentSearches = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 // upload Images
 exports.uploadProductImages = async (req, res) => {
   try {
-    // ✅ Role check
+    // Role check
     if (req.user.role !== "admin") {
       return res
         .status(403)
         .json({ error: "Only admins can upload product images" });
-    }
-
-    // multer se multiple files aayengi
+    } // multer se multiple files aayengi
     // const filenames = req.files.map(file => file.filename);
     // path add
-    const filenames = req.files.map((file) => file.filename);
 
-    // productId body se aayega
+    const filenames = req.files.map((file) => file.filename); // productId body se aayega
+
     const product = await Product.findByIdAndUpdate(
       req.body.productId,
       { $push: { images: { $each: filenames } } },
       { new: true },
-    );
+    ); //  Logger
 
-    // ✅ Logger
     console.log(
       `[UPLOAD] Admin ${req.user.id} uploaded images for product ${req.body.productId}:`,
       filenames,
@@ -526,6 +561,7 @@ exports.uploadProductImages = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 // exports.uploadProductImages = async (req, res) => {
 //   try {
 //     if (req.user.role !== "admin") {
@@ -533,9 +569,9 @@ exports.uploadProductImages = async (req, res) => {
 //         error: "Only admins can upload product images",
 //       });
 //     }
-      //  console.log("FILES:", req.files);
+//  console.log("FILES:", req.files);
 //     const imageUrls = req.files.map((file) => file.path);
-        
+
 //     const product = await Product.findByIdAndUpdate(
 //       req.body.productId,
 //       {
@@ -560,8 +596,6 @@ exports.uploadProductImages = async (req, res) => {
 //     res.status(500).json({ error: err.message });
 //   }
 // };
-
-
 
 // exports.removeProductImage = async (req, res) => {
 //   try {

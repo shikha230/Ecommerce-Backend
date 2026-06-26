@@ -45,9 +45,9 @@ const returnSchema = new mongoose.Schema(
       ],
       default: "Return Requested",
     },
-    adminMessage: {
-      type: String,
-    },
+    // adminMessage: {
+    //   type: String,
+    // },
   },
   {
     timestamps: true,

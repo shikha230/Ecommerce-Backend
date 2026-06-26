@@ -29,9 +29,9 @@ router.get('/byfilter/price',productController.getfilterByPrice);
 router.get("/recent-searches",tokenMiddleware,productController.getrecentSearches);
 
 
-
+// Admin Uploads
 router.post("/upload/photos",tokenMiddleware,uploadProduct.array("productImages", 5),productController.uploadProductImages);
- 
+//router.delete("/delete/photo",tokenMiddleware,productController.deleteProductImage);
 // ek product ke liye max 5 images uploadProductImages
 
 

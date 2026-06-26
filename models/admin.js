@@ -41,6 +41,11 @@ const adminSchema = new mongoose.Schema(
     lastname:{
       type:String,
     },
+    bio: {
+    type: String,
+    default: "",
+  },
+
     phone: {
                 type: String,
                 required: false,

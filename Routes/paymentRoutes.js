@@ -9,4 +9,11 @@ router.post("/create-order",tokenMiddleware,paymentController.createPaymentOrder
 // Verify Razorpay Payment (protected route)
 router.post("/verify-payment",tokenMiddleware,paymentController.verifyPayment);
 
+// webhook
+// router.post(
+//   "/webhook",
+//   express.raw({ type: "application/json" }),
+//   paymentController.razorpayWebhook
+// );
+
 module.exports = router;

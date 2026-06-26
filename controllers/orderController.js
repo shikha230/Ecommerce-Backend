@@ -8,6 +8,8 @@ exports.getOrderSummary = async (req, res) => {
   try {
     const userId = req.user.id;
     const { source, orderId } = req.query;
+    console.log("source =>", source);
+    console.log("orderId =>", orderId);
 
     let items = [];
     let order = null; //// ✅ declare globally
@@ -18,6 +20,7 @@ exports.getOrderSummary = async (req, res) => {
         "name price discount colour images installationRequired",
       );
       console.log("OrderId received:", orderId);
+      console.log("Order Found =>", order);
       if (!order) {
         return res.status(404).json({ message: "Order not found" });
       }
@@ -51,10 +54,13 @@ exports.getOrderSummary = async (req, res) => {
     });
 
     // Shipping
-    let shipping = subtotal < 10000 ? 500 : 0;
+    let shipping = subtotal < 10000 ? 1: 0;
 
-    // Tax
-    const tax = Math.round(subtotal * 0.1);
+    // // Tax
+    // const tax = Math.round(subtotal * 0.1);
+    const tax = 0;
+    logger.debug(`Tax calculated: ${tax}`);
+         
 
     let installationCharges = 0;
     const installationProductCount = items.reduce((count, p) => {
@@ -155,8 +161,11 @@ exports.createOrder = async (req, res) => {
       }
     });
 
-    let shipping = subtotal < 10000 ? 500 : 0;
-    const tax = Math.round(subtotal * 0.1);
+    let shipping = subtotal < 10000 ? 1: 0;
+    // const tax = Math.round(subtotal * 0.1);
+    const tax = 0;
+    logger.debug(`Tax calculated: ${tax}`);
+         
     let installationCharges = 0;
 
     const installationProductCount = cart.products.reduce((count, p) => {
@@ -241,10 +250,13 @@ exports.buyNow = async (req, res) => {
     }
 
     // Shipping
-    let shipping = subtotal < 10000 ? 500 : 0;
+    let shipping = subtotal < 10000 ? 1 : 0;
 
-    // Tax
-    const tax = Math.round(subtotal * 0.1);
+    // // Tax
+    // const tax = Math.round(subtotal * 0.1);
+    const tax = 0;
+    logger.debug(`Tax calculated: ${tax}`);
+         
 
     let installationCharges = 0;
 
