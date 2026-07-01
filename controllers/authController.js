@@ -5,14 +5,16 @@ const bcrypt = require("bcryptjs");
 const logger = require("../helper/logger");
 const path = require("path");
 const emailService = require("../helper/emailServices");
+// const admin = require("../config/firebaseAdmin");
+const { auth } = require("../config/firebaseAdmin");
 
 // Register
 exports.signup = async (req, res) => {
   try {
-    const { fullname, email, password } = req.body;
+    const { fullname, email, password, phone } = req.body;
 
     // Validations
-    if (!fullname || !email || !password) {
+    if (!fullname || !email || !password || !phone) {
       logger.info("-----signup------ All fields are required ");
 
       return res.status(400).json({ error: "All fields are required" });
@@ -38,12 +40,20 @@ exports.signup = async (req, res) => {
 
       return res.status(400).json({ error: "Email already registered" });
     }
+    // Check phone
+    const existingPhone = await User.findOne({ phone });
+    if (existingPhone) {
+      logger.info("---Phone-----Phone number already registered");
+      return res.status(400).json({
+        error: "Phone number already registered",
+      });
+    }
 
     // Password hash करना
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new user with hashed password
-    const user = new User({ fullname, email, password: hashedPassword, });
+    const user = new User({ fullname, email, password: hashedPassword, phone });
     await user.save();
     logger.info("----signup----User registered successfully");
 
@@ -106,20 +116,121 @@ exports.login = async (req, res) => {
     }
 
     // Generate JWT
-    const token = jwt.sign({ id: user._id,role: user.role,}, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      },
+    );
     logger.info("-----login------Login successfully  ");
-    res.status(200).json({ message: "Login successful", token, user: {
-    _id: user._id,
-    fullname: user.fullname,
-    email: user.email,
-    role: user.role,
-  }, 
-});
+    res.status(200).json({
+      message: "Login successful",
+      token,
+      user: {
+        _id: user._id,
+        fullname: user.fullname,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (err) {
     logger.error("-----login------error");
     res.status(500).json({ error: err.message });
+  }
+};
+exports.loginPhone = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    // Validate Firebase Token
+    if (!idToken) {
+      logger.error("-----login-phone------ Firebase ID Token is required");
+
+      return res.status(400).json({
+        success: false,
+        message: "Firebase ID Token is required",
+      });
+    }
+
+    // Verify Firebase Token
+    // const decodedToken = await admin.auth().verifyIdToken(idToken);
+    // const decodedToken = await admin.auth.verifyIdToken(idToken);
+    const decodedToken = await auth.verifyIdToken(idToken);
+
+    const phone = decodedToken.phone_number;
+    console.log(decodedToken);
+    console.log("Firebase Phone:", decodedToken.phone_number);
+
+    if (!phone) {
+      logger.error("-----login-phone------ Phone number not found");
+
+      return res.status(400).json({
+        success: false,
+        message: "Phone number not found",
+      });
+    }
+
+    // Find user by phone
+    const user = await User.findOne({ phone });
+    console.log(user);
+
+    if (!user) {
+      logger.error("-----login-phone------ User not found");
+
+      return res.status(404).json({
+        success: false,
+        message: "User not found. Please register first.",
+      });
+    }
+
+    // Check User Status
+    if (user.status === "Inactive") {
+      logger.error("-----login-phone------ User account inactive");
+
+      return res.status(403).json({
+        success: false,
+        message: "Your account is inactive. Please contact admin.",
+      });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      {
+        id: user._id,
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      },
+    );
+
+    logger.info(`-----login-phone------ Login successful : ${phone}`);
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        _id: user._id,
+        fullname: user.fullname,
+        lastname: user.lastname,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        profileImage: user.profileImage,
+        status: user.status,
+      },
+    });
+  } catch (err) {
+    logger.error("-----login-phone------ " + err.message);
+
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or Expired Firebase Token",
+      error: err.message,
+    });
   }
 };
 
@@ -262,7 +373,7 @@ exports.userProfile = async (req, res) => {
 
       return res.status(404).json({ message: "User not found" });
     }
-    
+
     logger.info("-----Profile-----Welcome to your profile");
     res.status(201).json({
       message: "Welcome to your profile",
@@ -357,14 +468,7 @@ exports.updateProfile = async (req, res) => {
   try {
     logger.info("-----UpdateProfile-----Request Body:", req.body);
 
-    const {
-      fullname,
-      email,
-      phone,
-      address,
-      profileImage,
-      
-    } = req.body;
+    const { fullname, email, phone, address, profileImage } = req.body;
 
     logger.info("-----UpdateProfile-----User ID from JWT:", req.user.id);
 
@@ -377,27 +481,27 @@ exports.updateProfile = async (req, res) => {
     logger.info("-----UpdateProfile-----Current User Data:", user);
     const phoneRegex = /^[6-9]\d{9}$/;
 
-   if (phone && !/^[6-9]\d{9}$/.test(phone)) {
-     return res.status(400).json({
-     message: "Please enter a valid phone number",
-   });
- }
-  // Address Validation
-if (address) {
-  const trimmedAddress = address.trim();
+    if (phone && !/^[6-9]\d{9}$/.test(phone)) {
+      return res.status(400).json({
+        message: "Please enter a valid phone number",
+      });
+    }
+    // Address Validation
+    if (address) {
+      const trimmedAddress = address.trim();
 
-  if (trimmedAddress.length < 5) {
-    return res.status(400).json({
-      message: "Address must be at least 5 characters long",
-    });
-  }
+      if (trimmedAddress.length < 5) {
+        return res.status(400).json({
+          message: "Address must be at least 5 characters long",
+        });
+      }
 
-  if (trimmedAddress.length > 200) {
-    return res.status(400).json({
-      message: "Address cannot exceed 200 characters",
-    });
-  }
-}
+      if (trimmedAddress.length > 200) {
+        return res.status(400).json({
+          message: "Address cannot exceed 200 characters",
+        });
+      }
+    }
 
     // Update fields
     user.fullname = fullname || user.fullname;

@@ -54,13 +54,32 @@ exports.getOrderSummary = async (req, res) => {
     });
 
     // Shipping
-    let shipping = subtotal < 10000 ? 1: 0;
+    // let shipping = subtotal < 10000 ? 1: 0;
 
     // // Tax
     // const tax = Math.round(subtotal * 0.1);
-    const tax = 0;
+    // const tax = 0;
+    // logger.debug(`Tax calculated: ${tax}`);
+    // Shipping
+    let shipping = 0;
+    items.forEach((item) => {
+      shipping += item.product.shipping || 0;
+    });
+    logger.debug(`Shipping charges: ${shipping}`);
+
+    // Tax
+    let tax = 0;
+    items.forEach((item) => {
+      if (item.product.tax) {
+        const itemTax =
+          (item.product.price * item.quantity * item.product.tax) / 100;
+        tax += itemTax;
+        logger.debug(
+          `Tax for product ${item.product.name}: ${itemTax} (rate: ${item.product.tax}%)`,
+        );
+      }
+    });
     logger.debug(`Tax calculated: ${tax}`);
-         
 
     let installationCharges = 0;
     const installationProductCount = items.reduce((count, p) => {
@@ -161,11 +180,31 @@ exports.createOrder = async (req, res) => {
       }
     });
 
-    let shipping = subtotal < 10000 ? 1: 0;
-    // const tax = Math.round(subtotal * 0.1);
-    const tax = 0;
+    // let shipping = subtotal < 10000 ? 1: 0;
+    // // const tax = Math.round(subtotal * 0.1);
+    // const tax = 0;
+    // logger.debug(`Tax calculated: ${tax}`);
+    // Shipping (per product, same as getCart)
+    let shipping = 0;
+    items.forEach((item) => {
+      shipping += item.product.shipping || 0;
+    });
+    logger.debug(`Shipping charges: ${shipping}`);
+
+    // Tax (per product, same as getCart)
+    let tax = 0;
+    items.forEach((item) => {
+      if (item.product.tax) {
+        const itemTax =
+          (item.product.price * item.quantity * item.product.tax) / 100;
+        tax += itemTax;
+        logger.debug(
+          `Tax for product ${item.product.name}: ${itemTax} (rate: ${item.product.tax}%)`,
+        );
+      }
+    });
     logger.debug(`Tax calculated: ${tax}`);
-         
+
     let installationCharges = 0;
 
     const installationProductCount = cart.products.reduce((count, p) => {
@@ -248,15 +287,26 @@ exports.buyNow = async (req, res) => {
     if (product.discount) {
       discount = (subtotal * product.discount) / 100;
     }
+    // // Shipping
+    // let shipping = subtotal < 10000 ? 1 : 0;
 
-    // Shipping
-    let shipping = subtotal < 10000 ? 1 : 0;
+    // // // Tax
+    // // const tax = Math.round(subtotal * 0.1);
+    // const tax = 0;
+    // logger.debug(`Tax calculated: ${tax}`);
+    // Shipping (from product field)
+    let shipping = product.shipping || 0;
+    logger.debug(`Shipping charges: ${shipping}`);
 
-    // // Tax
-    // const tax = Math.round(subtotal * 0.1);
-    const tax = 0;
+    // Tax (from product field)
+    let tax = 0;
+    if (product.tax) {
+      tax = (product.price * quantity * product.tax) / 100;
+      logger.debug(
+        `Tax for product ${product.name}: ${tax} (rate: ${product.tax}%)`,
+      );
+    }
     logger.debug(`Tax calculated: ${tax}`);
-         
 
     let installationCharges = 0;
 

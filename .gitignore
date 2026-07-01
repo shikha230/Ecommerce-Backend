@@ -13,5 +13,8 @@ logs/
 .env
 
 #uploads images
-uploads/            
+uploads/     
 
+# serviceAccountKey   
+
+config/serviceAccountKey.json

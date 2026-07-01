@@ -49,10 +49,19 @@ const userSchema = new mongoose.Schema(
     address: { 
       type: String
      },
-     phone: {
-                type: String,
-                match: [/^[6-9]\d{9}$/, "Please enter valid 10 digit phone number"],
-            },
+    //   phone: {
+    //              type: String,
+    //             required: true,
+    //            unique: true,
+    //            match: [/^[6-9]\d{9}$/, "Please enter valid 10 digit phone number"],
+    // },
+    phone: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
+
     profileImage:{
       type:String,
       default:""

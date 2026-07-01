@@ -84,6 +84,16 @@ const productSchema = new mongoose.Schema({
       unit: { type: String, default: "mm" } // optional unit field
     }
   ],
+  shipping: {
+      type: Number,
+      default: 0,
+    },
+
+  tax: {
+  type: Number,
+  default: 0,
+  min: 0,
+ },
   // Tags field added here
   tags: {
     type: [String],   // Array of strings

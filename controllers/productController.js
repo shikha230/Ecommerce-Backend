@@ -36,6 +36,8 @@ exports.createProduct = async (req, res) => {
       sold,
       category,
       dimensions,
+      shipping,   // new field
+      tax,
       tags,
       installationRequired,
       isBestSelling,
@@ -56,6 +58,8 @@ exports.createProduct = async (req, res) => {
       featured,
       sold,
       dimensions,
+      shipping: shipping || 0,   // default 0 if not provided
+      tax: tax || 0,             //  default 0 if not provided
       tags,
       installationRequired: installationRequired || false,
       isBestSelling: isBestSelling ?? false, //  default false, admin set karega
@@ -252,6 +256,17 @@ exports.updateProduct = async (req, res) => {
           .json({ error: "installationRequired must be true or false" });
       }
       product.installationRequired = req.body.installationRequired;
+    }
+    //  Shipping validation
+    if (req.body.shipping !== undefined && req.body.shipping < 0) {
+      return res.status(400).json({ error: "Shipping must be positive" });
+    }
+
+    //  Tax validation
+    if (req.body.tax !== undefined) {
+      if (req.body.tax < 0 || req.body.tax > 100) {
+        return res.status(400).json({ error: "Tax must be between 0 and 100" });
+      }
     }
     //  Partial update
     Object.assign(product, req.body);

@@ -84,7 +84,7 @@ exports.addtoCart = async (req, res) => {
 
     const populatedCart = await Cart.findById(cart._id).populate(
       "products.product",
-      "name price colour images installationRequired averageRating numReviews",
+      "name price colour images installationRequired averageRating numReviews shipping tax",
     );
 
     res
@@ -242,7 +242,7 @@ exports.getCart = async (req, res) => {
     // const cart = await Cart.findOne({ user: userId }).populate("products.product").populate("coupon"); // coupon details भी आएंगे
     const cart = await Cart.findOne({ user: userId }).populate(
       "products.product",
-      "name price colour images discount installationRequired averageRating numReviews",
+      "name price colour images discount installationRequired averageRating numReviews shipping tax",
     ); // ✅ extra fields
 
     if (!cart || cart.products.length === 0) {
@@ -291,19 +291,37 @@ exports.getCart = async (req, res) => {
     // }
 
     //  Shipping (free or fixed)
+    // let shipping = 0;
+    // if (subtotal < 10000) {
+    //   shipping = 1; // example
+    // }
     let shipping = 0;
-    if (subtotal < 10000) {
-      shipping = 1; // example
-    }
+    cart.products.forEach((item) => {
+    shipping += item.product.shipping || 0;
+    });
+
     logger.debug(`Shipping charges: ${shipping}`);
+
 
     //  Tax (optional 10%)
     // const tax = Math.round(subtotal * 0.1);
     // logger.debug(`Tax calculated: ${tax}`);
-    const tax = 0;
-    logger.debug(`Tax calculated: ${tax}`);
-     
-    const installationProductCount = cart.products.reduce((count, p) => {
+    // const tax = 0;
+    // logger.debug(`Tax calculated: ${tax}`);
+    let tax = 0;
+    cart.products.forEach((item) => {
+    if (item.product.tax) {
+    const itemTax = (item.product.price * item.quantity * item.product.tax) / 100;
+    tax += itemTax;
+    logger.debug(
+      `Tax for product ${item.product.name}: ${itemTax} (rate: ${item.product.tax}%)`
+    );
+  }
+});
+logger.debug(`Tax calculated: ${tax}`);
+
+    
+  const installationProductCount = cart.products.reduce((count, p) => {
       const adminAllowed = p.product?.installationRequired === true;
 
       const userSelected = p.installationRequired === true;

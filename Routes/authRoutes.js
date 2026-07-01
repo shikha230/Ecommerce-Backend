@@ -6,12 +6,11 @@ const { uploadUserProfileImage } = require("../controllers/authController");
 const { uploadUserProfile } = require("../middleware/uploads");
 
 
-
-
-const { signup, login, forgetPassword, verifyOtp, resetPassword,userProfile,changePassword,updateProfile,logoutSession,removeUserProfileImage } = require("../controllers/authController");
+const { signup, login, loginPhone, forgetPassword, verifyOtp, resetPassword,userProfile,changePassword,updateProfile,logoutSession,removeUserProfileImage } = require("../controllers/authController");
 
 router.post("/signup", signup);
 router.post("/login", login);
+router.post("/login-Phone",loginPhone );
 router.post("/forget-password", forgetPassword);
 router.post("/verify-otp", verifyOtp);
 router.post("/reset-password",resetPassword);
